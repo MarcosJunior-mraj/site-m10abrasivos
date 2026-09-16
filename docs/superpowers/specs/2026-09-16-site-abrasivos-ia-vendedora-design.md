@@ -42,7 +42,8 @@ Construir um site interativo que vende **discos, lixas e abrasivos para marmorar
 | Persona | Nome próprio e tom de marmorista, persuasão profissional, nunca se apresenta como robô; **não nega ser IA** se perguntada com sinceridade e **não inventa** experiência ou casos de clientes |
 | Arquitetura | **CRM é o cérebro** (canal webchat + agente vendedor + catálogo); site é vitrine + widget |
 | Hospedagem | **Easypanel** (Docker self-hosted) para site e CRM |
-| Direção visual | **C — Carrara Lab** (mármore claro, grade técnica, cotas em azul laser) |
+| Marca | **M10 Abrasivos** — segue o Guia da Marca (Azul `#20233A`, Laranja `#F97709`) |
+| Direção visual | **Carrara Lab Noturno** — grade técnica e veios de mármore sobre o Azul M10, detalhes em laranja |
 
 ---
 
@@ -245,7 +246,7 @@ Em `encaminhar_vendedor` a ferramenta **não devolve preço**. O agente deve ent
 | Camada | Tecnologia |
 |---|---|
 | Base | Next.js 16 (App Router, React Server Components, Partial Prerendering), React 19 + React Compiler, TypeScript estrito, `output: "standalone"` |
-| Estilo | Tailwind CSS 4 com tokens de design da direção Carrara Lab |
+| Estilo | Tailwind CSS 4 com tokens de design da identidade M10 (seção 7.2) |
 | 3D | React Three Fiber + drei (carregamento sob demanda) |
 | Animação | Motion (micro-interações), GSAP ScrollTrigger (narrativa na rolagem), Lenis (rolagem suave) |
 | Transições | View Transitions API (card → página de produto) |
@@ -253,13 +254,23 @@ Em `encaminhar_vendedor` a ferramenta **não devolve preço**. O agente deve ent
 | Qualidade | Biome, Vitest, Playwright |
 | Deploy | Docker no Easypanel |
 
-### 7.2 Direção visual — Carrara Lab
+### 7.2 Direção visual — Carrara Lab Noturno (identidade M10 Abrasivos)
 
-- **Paleta:** fundo mármore `#ECEEEF`, superfície `#FFFFFF`, veio/cinza técnico `#9AA3AA`, tinta `#14181C`, azul laser `#1E4BFF` (único acento).
-- **Tipografia:** Michroma (títulos técnicos, com moderação), IBM Plex Sans (texto), JetBrains Mono (cotas, granas, medidas, dados).
-- **Linguagem:** grade técnica sutil, cotas e linhas de dimensão em azul, escala de rugosidade (#50 desbaste → #3000 brilho), cantos quase retos.
-- **Assinatura 3D:** veios de mármore gerados em shader WebGL, movendo-se devagar; disco técnico em 3D com cotas; ao passar o mouse, a "pedra polida" reflete luz.
-- Referência aprovada: https://claude.ai/artifact/AmYrnGnWNMVk4b9PZS3MZG
+A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi adaptada ao **Guia da Marca M10 Abrasivos** (Nuancce Design). As regras do guia prevalecem.
+
+- **Paleta:**
+  - Azul M10 `#20233A` — fundo principal (versão noturna)
+  - Laranja M10 `#F97709` — acento: botões, ícones, cotas, destaques em títulos grandes
+  - Superfície elevada `#2A2E4A`, borda `#3A3F60`
+  - Texto `#F2F3F7`, texto secundário `#B9BCD0`
+  - Laranja para texto pequeno sobre fundo claro (páginas/elementos claros, quando houver): `#C85A00` (contraste AA)
+  - Botão principal: fundo `#F97709` com texto `#20233A`
+- **Tipografia:** Poppins ExtraBold (títulos, caixa alta), Montserrat (texto e interface), JetBrains Mono (granas, medidas, dados técnicos). **Panton Black Caps só no logo** (arquivo de imagem), não é carregada no site.
+- **Logo:** versão negativa sobre o azul, positiva sobre fundos claros, respeitando a área de proteção do guia. Arquivos em `Área de Trabalho\M10 Abrasivos - Marca\logomarca\`; solicitar à Nuancce as versões vetoriais (SVG) antes do subprojeto 4.
+- **Linguagem visual:** grade técnica sutil, cotas e linhas de dimensão em laranja, escala de rugosidade (#50 desbaste → #3000 brilho), cantos quase retos.
+- **Elementos do conceito do logo:** o disco central repete o "0" do logo (lixa com centro laranja); as faíscas remetem à broca.
+- **Assinatura 3D:** veios de mármore claros em shader WebGL sobre o azul, movendo-se devagar; disco 3D com cotas; faíscas laranja quando o cliente abre o chat.
+- Referência aprovada: https://claude.ai/artifact/HbHqi4D3pmbdhSANJcemuG (versão 2 — Noturno)
 
 ### 7.3 Páginas
 
@@ -273,7 +284,7 @@ Em `encaminhar_vendedor` a ferramenta **não devolve preço**. O agente deve ent
 ### 7.4 Widget de chat
 
 - Botão flutuante em todas as páginas (acessível com 1 toque) + botões contextuais nas páginas de produto.
-- Painel com visual Carrara Lab: cabeçalho com nome e status do especialista, mensagens em "cartões técnicos", indicador "digitando…" real vindo do SSE.
+- Painel com visual Carrara Lab Noturno (azul M10, detalhes em laranja): cabeçalho com nome e status do especialista, mensagens em "cartões técnicos", indicador "digitando…" real vindo do SSE.
 - Exibição de mensagens em sequência com pausa proporcional ao tamanho do texto.
 - Botão **"Continuar no WhatsApp"** quando o evento `handoff_whatsapp` chega.
 - Aviso LGPD no primeiro uso: "Esta conversa é registrada para atendimento" + link para `/privacidade`.
@@ -367,7 +378,8 @@ Valores com padrão definido; o usuário pode alterá-los antes ou durante a imp
 
 | Item | Padrão até ser informado |
 |---|---|
-| Nome da marca/empresa | "ABRASIVA" (provisório) |
+| Nome da marca/empresa | M10 Abrasivos (definido) |
+| Logo vetorial (SVG) | PNG do guia até a Nuancce enviar o SVG |
 | Nome da persona da IA | Definido na tela do agente; prompt usa o valor configurado |
 | Número de WhatsApp para `wa.me` | Número do canal WhatsApp principal do CRM |
 | Limite de valor cotado pela IA | R$ 2.000,00 |
