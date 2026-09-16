@@ -52,7 +52,7 @@ Construir um site interativo que vende **discos, lixas e abrasivos para marmorar
 ```
                 ┌──────────────────── Easypanel ─────────────────────┐
                 │                                                    │
-Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──┐        │
+Bling API v3 ◀──┼── sync (job lib/jobs a cada 15 min) ────┐        │
                 │                                           ▼        │
                 │   ┌──────────────── CRM (Next.js 16) ─────────────┐│
                 │   │ Catálogo: bling_products, catalog_items, kits ││
@@ -66,7 +66,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
                 │   └───────────────────────────────────────────────┘│
                 └────────────────────────────────────────────────────┘
                                     │
-             Supabase Cloud (Postgres, Realtime, Storage, pg_cron, pg_net)
+             Supabase Cloud (Postgres, Realtime, Storage)
                                     │
              WhatsApp (canais existentes: Cloud / Evolution / UAZAPI)
 ```
@@ -88,7 +88,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
 - Tela `Configurações → Integrações → Bling`: conexão via OAuth2 (authorization code) da API v3.
 - Tokens (`access_token`, `refresh_token`, expiração) guardados em tabela de integração por organização, **somente server-side**; renovação automática antes de expirar.
 - Sincronização:
-  - Agendada a cada **15 minutos** via `pg_cron` + `pg_net` chamando `POST /api/cron/bling-sync` com `Authorization: Bearer ${CRON_SECRET}`.
+  - Agendada a cada **15 minutos** pelo agendador de jobs já existente no CRM (`lib/jobs/index.ts`, iniciado por `instrumentation.ts`). *(Ajuste do plano da Etapa 1: o CRM já roda jobs assim no Easypanel e removeu `pg_net` por segurança.)*
   - Botão **"Sincronizar agora"** na tela de Catálogo.
   - Paginação completa de produtos; respeito ao limite de requisições do Bling com backoff.
   - Upsert por `bling_id`; produtos removidos ou inativos no Bling ficam com `bling_status = inactive` (nunca apagados).
@@ -99,7 +99,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
 **`bling_integrations`** — `organization_id` (único), tokens, `expires_at`, `last_sync_at`, `last_sync_error`.
 
 **`bling_products`** (espelho, somente escrita pelo sync)
-- `bling_id` (único por org), `sku`, `name`, `description`, `price` (numeric), `stock` (numeric), `images` (jsonb), `bling_category`, `bling_status` (active/inactive), `synced_at`.
+- `bling_id` (único por org), `sku`, `name`, `description`, `price` (numeric), `stock` (numeric), `images` (jsonb), `bling_status` (active/inactive), `synced_at`.
 
 **`product_categories`**
 - `name`, `slug` (único por org), `description`, `sort_order`, `image_url`.
@@ -120,7 +120,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
 
 - **Preço do kit** = Σ(`bling_products.price` × `quantity`) × (1 − `discount_pct`/100), arredondado a 2 casas.
 - **Disponibilidade do kit** = mín(⌊`stock` ÷ `quantity`⌋) entre os itens.
-- **Auto-despublicação:** após cada sync e a cada edição, se algum item estiver `inactive` no Bling ou não estiver publicado como produto, o kit fica `is_published = false`, `hidden_reason` é preenchido e o CRM cria um aviso para os admins.
+- **Auto-despublicação:** após cada sync e a cada edição, se algum item estiver `inactive` no Bling ou não estiver publicado como produto, o kit fica `is_published = false`, `hidden_reason` é preenchido e o CRM cria uma tarefa de prioridade alta para os admins (o CRM não tem tabela de notificações).
 - Cálculo implementado como função pura (`lib/catalog/kit-pricing.ts`) com testes unitários.
 
 ### 4.4 Telas no CRM
@@ -136,7 +136,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
 - `GET /api/public/catalog/items?category=&featured=&q=`
 - `GET /api/public/catalog/items/[slug]`
 - Autenticação: chave pública por organização no header `x-catalog-key`.
-- Consulta **apenas colunas públicas** (via view `public_catalog_items` sem preço e sem estoque) e **apenas itens publicados**.
+- Consulta **apenas colunas públicas** (lista fixa em `lib/catalog/public-queries.ts`, coberta por teste, sem preço, estoque ou SKU) e **apenas itens publicados**.
 - Respostas com `Cache-Control` curto; ao publicar/editar, o CRM chama `POST {site}/api/revalidate` (com segredo) para revalidar as páginas afetadas.
 
 ---
@@ -176,7 +176,7 @@ Bling API v3 ◀──┼── sync (pg_cron → /api/cron/bling-sync) ──�
 ### 5.5 Easypanel e tempo real
 
 - Como o CRM roda como processo Node contínuo no Easypanel, SSE é suportado nativamente.
-- O cron da Vercel (`vercel.json`) é substituído por jobs `pg_cron` + `pg_net` chamando `/api/cron/recover-messages` (a cada 1 minuto) e `/api/cron/bling-sync` (a cada 15 minutos). A mudança fica documentada no `CLAUDE.md` do CRM.
+- O CRM já executa tarefas agendadas no Easypanel com `setInterval` (`lib/jobs/index.ts` via `instrumentation.ts`); a sincronização do Bling entra como mais um job. Não se usa `pg_cron`/`pg_net`.
 
 ---
 
@@ -368,7 +368,7 @@ Cada subprojeto recebe seu próprio plano de implementação e é entregue funci
 3. **CRM — Agente vendedor + passagem para WhatsApp** (seções 6 e 8)
 4. **Site — Vitrine + widget** (seção 7)
 
-A migração do cron da Vercel para `pg_cron` acontece no subprojeto 1, junto com o deploy do CRM no Easypanel.
+Plano do subprojeto 1: `docs/superpowers/plans/2026-09-17-etapa-1-catalogo-bling-kits.md`.
 
 ---
 
