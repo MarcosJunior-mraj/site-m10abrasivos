@@ -1,7 +1,7 @@
 # Site de Abrasivos com IA Vendedora — Design
 
 **Data:** 2026-09-16
-**Status:** aguardando revisão do usuário
+**Status:** aprovado pelo usuário em 2026-09-16
 **Projetos envolvidos:** `ias/site` (novo) e `ias/CRM` (evolução)
 
 ---
@@ -35,7 +35,7 @@ Construir um site interativo que vende **discos, lixas e abrasivos para marmorar
 | Preço | **Híbrido**: IA cota itens dentro de limites configuráveis; acima disso ou com pedido de desconto, encaminha para vendedor humano |
 | Origem dos produtos | ERP **Bling** (API v3), entre 100 e 1.000 produtos |
 | Curadoria | Tudo do Bling é espelhado no CRM, mas **só o que for publicado** vai para o site e para a IA |
-| Kits | Montados **só no CRM**; preço = soma dos itens (preço do Bling) com **% de desconto** |
+| Kits | Montados **só no CRM** (confirmado); preço = soma dos itens (preço do Bling) com **% de desconto** |
 | Identificação | **Anônimo até o preço**: nome e WhatsApp são pedidos quando o cliente quer preço/orçamento |
 | Fechamento (v1) | IA monta o pedido no funil do CRM; vendedor humano lança no Bling e finaliza frete e pagamento |
 | Estrutura do site | Vitrine completa sem preço: home, categorias, página por produto/kit, botão "Falar com especialista" |
