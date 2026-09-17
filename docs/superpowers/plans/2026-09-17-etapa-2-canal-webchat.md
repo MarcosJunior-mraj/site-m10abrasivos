@@ -3081,7 +3081,7 @@ git commit -m "feat(webchat): página de teste, token pela URL no SSE e document
 | 5.1 `channels.agent_id` apontando para o agente | Tarefa 8 (reusa `AgentSelector`) |
 | 5.2 `POST /session` com Turnstile, origem, token e histórico | Tarefa 5 |
 | 5.2 `POST /messages` com limites e `external_id` do cliente | Tarefa 6 |
-| 5.2 `GET /stream` (SSE) com `typing`, `message`, `agent_joined`, `handoff_whatsapp` | Tarefa 7 |
+| 5.2 `GET /stream` (SSE) com `digitando`, `mensagem`, `vendedor_entrou`, `handoff_whatsapp` | Tarefa 7 (nomes em português; a especificação foi corrigida). O dado do `handoff_whatsapp` quem grava é a **Etapa 3** — a Etapa 2 só transmite |
 | 5.2 `GET /messages?after=` como reserva | Tarefa 6 |
 | 5.3 Conversa com `contact_id` nulo e `external_thread_id` do visitante | Tarefas 5 e 6 (quem cria é o router) |
 | 5.3 Router, inbox em tempo real e disparo do agente sem mudança | Tarefa 6 (gatilho existente, `raw.channelId`) |

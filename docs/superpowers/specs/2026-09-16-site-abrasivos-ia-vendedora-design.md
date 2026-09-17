@@ -154,10 +154,10 @@ Bling API v3 ◀──┼── sync (job lib/jobs a cada 15 min) ────�
 
 | Rota | Função |
 |---|---|
-| `POST /api/webchat/session` | Valida Turnstile e origem; cria/retoma conversa pelo ID de visitante; devolve token de sessão assinado (HMAC, ligado a `channel_id` + `conversation_id`, validade 30 dias) e o histórico |
-| `POST /api/webchat/messages` | Recebe `{ clientMessageId, body, pageContext }`; valida token, origem, limites; chama o router existente (`processInboundMessage`) com `external_id = clientMessageId` |
-| `GET /api/webchat/stream` | **SSE**: envia eventos `typing`, `message`, `agent_joined`, `handoff_whatsapp` apenas da conversa do token |
-| `GET /api/webchat/messages?after=` | Reserva quando o SSE cai; devolve mensagens após o cursor |
+| `POST /api/public/webchat/session` | Valida Turnstile e origem; cria/retoma conversa pelo ID de visitante; devolve token de sessão assinado (HMAC, ligado a `channel_id` + `conversation_id`, validade 30 dias) e o histórico |
+| `POST /api/public/webchat/messages` | Recebe `{ clientMessageId, body, pageContext }`; valida token, origem, limites; chama o router existente (`processInboundMessage`) com `external_id = clientMessageId` |
+| `GET /api/public/webchat/stream` | **SSE**: envia eventos `mensagem`, `digitando`, `vendedor_entrou`, `handoff_whatsapp` e `reconectar` apenas da conversa do token |
+| `GET /api/public/webchat/messages?after=` | Reserva quando o SSE cai; devolve mensagens após o cursor |
 
 ### 5.3 Fluxo
 
@@ -165,7 +165,7 @@ Bling API v3 ◀──┼── sync (job lib/jobs a cada 15 min) ────�
 2. A conversa é criada com `contact_id = null`, `external_thread_id = visitorId`, selo de canal "Site".
 3. Mensagem do cliente entra pelo router; a inbox atualiza via broadcast Realtime existente; o agente é disparado pelo fluxo existente (lock + debounce + `runAgent`).
 4. A resposta do agente é gravada em `messages`; o `sendMessage` do adapter webchat apenas marca como `delivered` (não há provedor externo).
-5. O processo do CRM assina o broadcast `inbox:{org_id}` com credencial de serviço e repassa ao SSE da conversa correspondente os eventos relevantes (inclusive `agent_status = thinking` → `typing`).
+5. O SSE roda no processo Node do CRM e faz uma leitura curta no banco a cada 1,5 s da conversa daquele token, empurrando o que mudou (inclusive `agent_status = thinking` → `digitando`). *(Ajuste da Etapa 2: o broadcast `inbox:{org_id}` só é assinado no navegador de quem está logado, e o CRM não tem cliente Realtime no servidor.)*
 6. Resposta de vendedor humano pela inbox chega ao widget pelo mesmo caminho, exibindo o nome do vendedor.
 
 ### 5.4 Contexto e identificação
@@ -286,7 +286,7 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 - Botão flutuante em todas as páginas (acessível com 1 toque) + botões contextuais nas páginas de produto.
 - Painel com visual Carrara Lab Noturno (azul M10, detalhes em laranja): cabeçalho com nome e status do especialista, mensagens em "cartões técnicos", indicador "digitando…" real vindo do SSE.
 - Exibição de mensagens em sequência com pausa proporcional ao tamanho do texto.
-- Botão **"Continuar no WhatsApp"** quando o evento `handoff_whatsapp` chega.
+- Botão **"Continuar no WhatsApp"** quando o evento `handoff_whatsapp` chega (quem grava o dado desse evento é a ferramenta `offer_whatsapp` da Etapa 3; a Etapa 2 só o transmite).
 - Aviso LGPD no primeiro uso: "Esta conversa é registrada para atendimento" + link para `/privacidade`.
 - Fallbacks: sem resposta em 45 s → mensagem de contingência + botão WhatsApp; CRM inacessível → botão WhatsApp direto.
 
