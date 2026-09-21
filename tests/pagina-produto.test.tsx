@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { dadosEstruturados } from "@/app/produto/[slug]/dados-estruturados";
+import { dadosEstruturados, dadosEstruturadosJson } from "@/app/produto/[slug]/dados-estruturados";
 import { BotaoFalarComEspecialista } from "@/components/catalogo/botao-falar-com-especialista";
 import { ComposicaoDoKit } from "@/components/catalogo/composicao-do-kit";
 import { FolhaDeEspecificacao } from "@/components/catalogo/folha-de-especificacao";
@@ -85,5 +85,17 @@ describe("dadosEstruturados", () => {
   it("aponta a imagem para a rota do site, não para o S3", () => {
     expect(JSON.stringify(dados)).toContain("https://m10abrasivos.com.br/imagens/gt-50/0");
     expect(JSON.stringify(dados)).not.toContain("amazonaws");
+  });
+});
+
+describe("dadosEstruturadosJson", () => {
+  it("escapa </script> para o JSON-LD não fechar a tag no meio, e continua JSON válido", () => {
+    const texto = dadosEstruturadosJson(
+      item({ title: "Disco 50</script><script>alert(1)</script>" }),
+      "https://m10abrasivos.com.br",
+    );
+    expect(texto).not.toContain("</script>");
+    const reconstituido = JSON.parse(texto) as { name: string };
+    expect(reconstituido.name).toBe("Disco 50</script><script>alert(1)</script>");
   });
 });

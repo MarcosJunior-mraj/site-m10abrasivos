@@ -10,7 +10,7 @@ import { descricaoDoItem } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItem, buscarItens } from "@/lib/catalog/client";
 import { temImagem, urlDaImagem } from "@/lib/catalog/imagens";
 import { lerConfigServidor } from "@/lib/config";
-import { dadosEstruturados } from "./dados-estruturados";
+import { dadosEstruturadosJson } from "./dados-estruturados";
 
 export const dynamicParams = true;
 
@@ -46,9 +46,13 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
 
   const { siteUrl } = lerConfigServidor();
   const [categorias, todos] = await Promise.all([buscarCategorias(), buscarItens()]);
-  const irmaos = todos.filter(
-    (outro) => outro.slug !== item.slug && outro.category?.slug === item.category?.slug,
-  );
+  // `item.category` pode ser `null` (item sem categoria no CRM). Sem essa guarda,
+  // `undefined === undefined` juntaria todo item sem categoria como "irmão" de
+  // qualquer outro item sem categoria — uma relação falsa.
+  const categoriaSlug = item.category?.slug;
+  const irmaos = categoriaSlug
+    ? todos.filter((outro) => outro.slug !== item.slug && outro.category?.slug === categoriaSlug)
+    : [];
   const comItens = categorias.filter((categoria) =>
     todos.some((outro) => outro.category?.slug === categoria.slug),
   );
@@ -59,8 +63,8 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
       <main className="mx-auto max-w-6xl px-4 py-12">
         <script
           type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD é o nosso próprio objeto serializado, não conteúdo de visitante.
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(dadosEstruturados(item, siteUrl)) }}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD é o nosso próprio objeto serializado (com `<` escapado), não conteúdo de visitante.
+          dangerouslySetInnerHTML={{ __html: dadosEstruturadosJson(item, siteUrl) }}
         />
 
         <div className="grid gap-10 md:grid-cols-2">
