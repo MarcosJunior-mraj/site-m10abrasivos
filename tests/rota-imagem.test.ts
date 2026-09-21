@@ -88,4 +88,22 @@ describe("rota da imagem", () => {
     const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
     expect(resposta.status).toBe(502);
   });
+
+  it("502 quando o corpo da resposta estoura ao ser lido", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    const corpoComFalha = new ReadableStream({
+      start(controller) {
+        controller.error(new Error("conexão caiu"));
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(corpoComFalha, { status: 200, headers: { "content-type": "image/jpeg" } }),
+      ),
+    );
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+    expect(resposta.status).toBe(502);
+  });
 });

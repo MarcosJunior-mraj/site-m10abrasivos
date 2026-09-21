@@ -43,7 +43,14 @@ export async function GET(_requisicao: Request, { params }: Contexto): Promise<R
     return new Response("Imagem indisponível.", { status: 502 });
   }
 
-  return new Response(await resposta.arrayBuffer(), {
+  let corpo: ArrayBuffer;
+  try {
+    corpo = await resposta.arrayBuffer();
+  } catch {
+    return new Response("Imagem indisponível.", { status: 502 });
+  }
+
+  return new Response(corpo, {
     status: 200,
     headers: { "content-type": tipo, "cache-control": CACHE },
   });
