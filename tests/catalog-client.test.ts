@@ -125,4 +125,14 @@ describe("cliente do catálogo", () => {
     expect(categorias[0]?.slug).toBe("abrasivos-para-poliborda");
     expect(chamadas[0]?.url).toBe("https://crm.exemplo/api/public/catalog/categories");
   });
+
+  it("lança ErroDoCatalogo quando a resposta não é JSON válido", async () => {
+    const respostaInvalida = new Response("<html>não é json</html>", {
+      status: 200,
+      headers: { "content-type": "text/html" },
+    });
+    await expect(
+      buscarItens({}, { env: ENV, fetchImpl: fetchFalso(respostaInvalida) }),
+    ).rejects.toThrow(/JSON/);
+  });
 });

@@ -55,7 +55,19 @@ async function buscarJson(caminho: string, deps: DepsDoCatalogo): Promise<unknow
       `O CRM respondeu ${resposta.status} em ${caminho}.`,
     );
   }
-  return (await resposta.json()) as unknown;
+
+  let corpo: unknown;
+  try {
+    corpo = (await resposta.json()) as unknown;
+  } catch (erro) {
+    const motivo = erro instanceof Error ? erro.message : String(erro);
+    throw new ErroDoCatalogo(
+      caminho,
+      resposta.status,
+      `Resposta do CRM não era JSON válido em ${caminho}: ${motivo}`,
+    );
+  }
+  return corpo;
 }
 
 export type OpcoesDeBusca = { categoria?: string; destaque?: boolean; busca?: string };
