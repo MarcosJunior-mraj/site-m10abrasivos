@@ -32,6 +32,6 @@ export async function POST(requisicao: Request): Promise<Response> {
     return Response.json({ error: "Tag desconhecida." }, { status: 400 });
   }
 
-  revalidateTag(TAG_CATALOGO);
+  revalidateTag(TAG_CATALOGO, "max");
   return Response.json({ data: { ok: true } });
 }

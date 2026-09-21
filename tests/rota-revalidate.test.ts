@@ -34,7 +34,7 @@ describe("POST /api/revalidate", () => {
   it("revalida a tag do catálogo com o segredo certo", async () => {
     const resposta = await POST(pedido({ tag: "catalog" }, `Bearer ${SEGREDO}`));
     expect(resposta.status).toBe(200);
-    expect(revalidateTag).toHaveBeenCalledWith("catalog");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", "max");
   });
 
   it("recusa sem cabeçalho", async () => {
