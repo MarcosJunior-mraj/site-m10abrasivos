@@ -133,6 +133,12 @@ describe("cliente do catálogo", () => {
     });
     await expect(
       buscarItens({}, { env: ENV, fetchImpl: fetchFalso(respostaInvalida) }),
-    ).rejects.toThrow(/JSON/);
+    ).rejects.toThrow(ErroDoCatalogo);
+    try {
+      await buscarItens({}, { env: ENV, fetchImpl: fetchFalso(respostaInvalida) });
+    } catch (erro) {
+      expect(erro).toBeInstanceOf(ErroDoCatalogo);
+      expect((erro as ErroDoCatalogo).message).toContain("Resposta do CRM não era JSON válido");
+    }
   });
 });
