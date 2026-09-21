@@ -1,12 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
+const useSearchParamsMock = vi.fn(() => new URLSearchParams(""));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
   usePathname: () => "/abrasivos-para-poliborda",
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => useSearchParamsMock(),
 }));
 
 import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
@@ -47,7 +48,11 @@ const ITENS = [
 ];
 
 describe("GradeDeItens", () => {
-  beforeEach(() => replace.mockReset());
+  beforeEach(() => {
+    replace.mockReset();
+    useSearchParamsMock.mockReset();
+    useSearchParamsMock.mockReturnValue(new URLSearchParams(""));
+  });
 
   it("mostra todos os itens e a contagem", () => {
     render(<GradeDeItens itens={ITENS} />);
@@ -84,5 +89,33 @@ describe("GradeDeItens", () => {
   it("só oferece filtros que existem nos itens", () => {
     render(<GradeDeItens itens={[item({ stones: ["granito"], applications: ["desbaste"] })]} />);
     expect(screen.queryByRole("button", { name: /Mármore/i })).toBeNull();
+  });
+
+  it("abre já filtrada quando a URL já traz um filtro", () => {
+    useSearchParamsMock.mockReturnValue(new URLSearchParams("pedra=marmore"));
+    render(<GradeDeItens itens={ITENS} />);
+
+    expect(screen.queryByRole("link", { name: /Green Turbo #50/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /Green Turbo #400/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Mármore/i }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("ressincroniza a seleção quando os parâmetros da URL mudam por fora do componente", async () => {
+    const { rerender } = render(<GradeDeItens itens={ITENS} />);
+
+    expect(screen.getByRole("link", { name: /Green Turbo #50/ })).toBeDefined();
+
+    useSearchParamsMock.mockReturnValue(new URLSearchParams("pedra=marmore"));
+    rerender(<GradeDeItens itens={ITENS} />);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /Green Turbo #50/ })).toBeNull();
+    });
+    expect(screen.getByRole("link", { name: /Green Turbo #400/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Mármore/i }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 });

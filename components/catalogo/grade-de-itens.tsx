@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CartaoItem } from "@/components/catalogo/cartao-item";
 import { Filtros } from "@/components/catalogo/filtros";
 import {
@@ -21,6 +21,13 @@ export function GradeDeItens({ itens }: { itens: ItemCatalogo[] }) {
   const [selecao, setSelecao] = useState<SelecaoDeFiltros>(() =>
     lerSelecaoDaUrl(new URLSearchParams(parametros.toString())),
   );
+
+  // A URL manda: se a pessoa navega para um link com filtro (voltar, avançar,
+  // link compartilhado), a seleção acompanha em vez de ficar presa ao estado
+  // do primeiro render.
+  useEffect(() => {
+    setSelecao(lerSelecaoDaUrl(new URLSearchParams(parametros.toString())));
+  }, [parametros]);
 
   const ordenados = useMemo(() => ordenarPorGrana(itens), [itens]);
   const grupos = useMemo(() => {
@@ -55,20 +62,23 @@ export function GradeDeItens({ itens }: { itens: ItemCatalogo[] }) {
         />
       </aside>
       <div>
-        <p className="font-mono text-sm text-texto-secundario">
-          {visiveis.length} {visiveis.length === 1 ? "item" : "itens"}
-        </p>
-        {visiveis.length === 0 ? (
-          <p className="mt-8 text-texto-secundario">
-            Nenhum item com essa combinação. Limpe os filtros ou fale com um especialista.
+        <div role="status" aria-live="polite">
+          <p className="font-mono text-sm text-texto-secundario">
+            {visiveis.length} {visiveis.length === 1 ? "item" : "itens"}
           </p>
-        ) : (
+          {visiveis.length === 0 ? (
+            <p className="mt-8 text-texto-secundario">
+              Nenhum item com essa combinação. Limpe os filtros ou fale com um especialista.
+            </p>
+          ) : null}
+        </div>
+        {visiveis.length > 0 ? (
           <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {visiveis.map((item) => (
               <CartaoItem key={item.slug} item={item} />
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
