@@ -245,13 +245,13 @@ Em `encaminhar_vendedor` a ferramenta **não devolve preço**. O agente deve ent
 
 | Camada | Tecnologia |
 |---|---|
-| Base | Next.js 16 (App Router, React Server Components, Partial Prerendering), React 19 + React Compiler, TypeScript estrito, `output: "standalone"` |
+| Base | Next.js 16.2 (App Router, React Server Components), React 19.2.4, TypeScript estrito, `output: "standalone"`, Node 24 — as mesmas versões do CRM |
 | Estilo | Tailwind CSS 4 com tokens de design da identidade M10 (seção 7.2) |
-| 3D | React Three Fiber + drei (carregamento sob demanda) |
-| Animação | Motion (micro-interações), GSAP ScrollTrigger (narrativa na rolagem), Lenis (rolagem suave) |
-| Transições | View Transitions API (card → página de produto) |
+| 3D (onda 4b) | React Three Fiber + drei (carregamento sob demanda) |
+| Animação | Motion (micro-interações, 4a); GSAP ScrollTrigger e Lenis (narrativa na rolagem, 4b) |
+| Transições (onda 4b) | View Transitions API (card → página de produto) |
 | Anti-bot | Cloudflare Turnstile invisível |
-| Qualidade | Biome, Vitest, Playwright |
+| Qualidade | Biome 2.4, Vitest, Playwright |
 | Deploy | Docker no Easypanel |
 
 ### 7.2 Direção visual — Carrara Lab Noturno (identidade M10 Abrasivos)
@@ -274,27 +274,54 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 
 ### 7.3 Páginas
 
-- **Home:** hero 3D, categorias, itens e kits em destaque, "Como funciona" (escolha → fale com especialista → receba o pedido), chamada para a IA.
-- **Categoria** `/[categoria]`: grade de itens com filtros por pedra, aplicação, grana e diâmetro (dados da ficha técnica).
-- **Produto/Kit** `/produto/[slug]`: fotos, descrição, ficha técnica em formato de "folha de especificação" com cotas, composição do kit, botão **"Falar com especialista"** (abre o chat com contexto do item). Sem preço.
-- **Privacidade** `/privacidade`: exigida pela LGPD e referenciada no widget.
-- Páginas geradas estaticamente com revalidação sob demanda (`/api/revalidate` chamado pelo CRM) e revalidação periódica de segurança (1 h).
+- **Home:** hero (assinatura 3D na onda 4b, veios em SVG/CSS na 4a), **escala de rugosidade** 50 → 3000 como régua de cotas que leva a cada grana, categorias e kits em destaque, "Como funciona" (escolha → fale com especialista → receba o pedido), chamada para a IA.
+- **Categoria** `/[categoria]`: grade de itens com filtros por pedra, aplicação, grana e diâmetro, montados a partir dos valores presentes na categoria (filtro sem item não aparece). Estado dos filtros espelhado na URL (`?pedra=granito`). Ordenação por `sort_order` e depois por grana numérica. Slugs reservados (`produto`, `privacidade`, `api`, `imagens`) devolvem 404.
+- **Produto/Kit** `/produto/[slug]`: fotos, descrição, ficha técnica em formato de "folha de especificação" com cotas, composição do kit, outras granas da mesma linha, botão **"Falar com especialista"** (abre o chat com `pageContext`). Sem preço.
+- **Privacidade** `/privacidade`: exigida pela LGPD e referenciada no widget; razão social, CNPJ e e-mail do encarregado vêm de configuração (`EMPRESA_*`).
+- Páginas geradas estaticamente com revalidação sob demanda (`/api/revalidate` chamado pelo CRM) e revalidação periódica de segurança (1 h). `dynamicParams: true`: item publicado agora responde no primeiro acesso.
 - SEO: metadata por página, `sitemap.xml`, `robots.txt`, dados estruturados `Product` **sem** `offers`/preço.
+- **Conteúdo ausente não vira buraco na tela:** sem `title`, vale o nome do Bling; sem `description`, o site monta uma frase **apenas com fatos da ficha** (grana, diâmetro, pedras, aplicações), sem inventar prazo, estoque ou desempenho; sem foto, entra um marcador com o disco da marca.
+
+### 7.3.1 Catálogo e imagens (decidido na Etapa 4)
+
+- Um cliente único lê a API do CRM no servidor (`CRM_URL` + `CATALOG_KEY`, nunca no navegador) e valida cada resposta com zod antes de virar tipo do site. Os `fetch` levam `next: { tags: ["catalog"], revalidate: 3600 }`.
+- `POST /api/revalidate` confere `Authorization: Bearer $SITE_REVALIDATE_SECRET` em tempo constante e chama `revalidateTag("catalog")`. O CRM chama ao fim de cada sync do Bling (a cada 15 min) e a cada publicação/despublicação de item ou kit.
+- **As imagens do Bling são URLs assinadas do S3 com expiração de ~24 h**, renovadas a cada sync. O HTML não aponta para elas: o site serve `/imagens/[slug]/[indice]`, que lê a URL atual do cache (tag `catalog`) e devolve a imagem com `Cache-Control: public, max-age=86400, stale-while-revalidate`. Assim o HTML estático nunca carrega assinatura vencida, o otimizador não refaz todas as imagens a cada 15 min e o site sobrevive a um CRM parado por dias.
+- Falha do CRM: erro na revalidação em segundo plano mantém a página anterior no ar; erro no build derruba o build de propósito (melhor não publicar do que publicar vitrine vazia).
 
 ### 7.4 Widget de chat
 
-- Botão flutuante em todas as páginas (acessível com 1 toque) + botões contextuais nas páginas de produto.
-- Painel com visual Carrara Lab Noturno (azul M10, detalhes em laranja): cabeçalho com nome e status do especialista, mensagens em "cartões técnicos", indicador "digitando…" real vindo do SSE.
+- Botão flutuante em todas as páginas (acessível com 1 toque) + botões contextuais nas páginas de produto. O painel e o script do Turnstile entram por `dynamic import` no primeiro clique — ou sozinhos quando há token salvo e conversa em andamento.
+- Painel com visual Carrara Lab Noturno (azul M10, detalhes em laranja): cabeçalho com nome e status do especialista, mensagens em "cartões técnicos", indicador "digitando…" real vindo do SSE, e aviso de que uma pessoa assumiu quando chega `vendedor_entrou`.
 - Exibição de mensagens em sequência com pausa proporcional ao tamanho do texto.
-- Botão **"Continuar no WhatsApp"** quando o evento `handoff_whatsapp` chega (quem grava o dado desse evento é a ferramenta `offer_whatsapp` da Etapa 3; a Etapa 2 só o transmite).
+- **Sessão:** token de 30 dias em `localStorage`. **401 com CORS** significa sessão expirada (o CRM só libera CORS nesse caso) → reabre a sessão pela chave pública e repete o envio uma vez; erro de rede cai no fallback do WhatsApp.
+- **Reconciliação:** cada envio leva um `clientMessageId`; a mensagem volta com `externalId: "msg_<clientMessageId>"` e substitui a bolha otimista. Leituras por `GET /messages?after=` descartam ids já vistos (o cursor é inclusivo).
+- **Conexão:** `EventSource` em `/stream?token=…` (única rota que aceita token na URL). Fica aberta enquanto a aba está visível, mesmo com o painel fechado (marcador de mensagem nova no botão); aba escondida por mais de um minuto fecha, e voltar reabre com `after=`. Sem poll periódico — ele estouraria as 200 requisições/dia.
+- Botão **"Continuar no WhatsApp"** quando o evento `handoff_whatsapp` chega, apontando para `https://wa.me/{whatsappNumber}?text=Oi! Vim do site.` — o prefixo exato que o CRM procura para injetar o resumo no prompt do agente do WhatsApp. O resumo **não viaja na URL**: já está gravado como nota na conversa. Nada muda no CRM por causa do widget.
 - Aviso LGPD no primeiro uso: "Esta conversa é registrada para atendimento" + link para `/privacidade`.
-- Fallbacks: sem resposta em 45 s → mensagem de contingência + botão WhatsApp; CRM inacessível → botão WhatsApp direto.
+- Fallbacks: sem resposta em 45 s → mensagem de contingência + botão WhatsApp; CRM inacessível → painel degradado só com o botão (`NEXT_PUBLIC_WHATSAPP_FALLBACK`); 429 → aviso com o `Retry-After`, sem repetição automática.
+- Acessibilidade: foco preso no painel, `Esc` fecha e devolve o foco ao botão, `aria-live="polite"` nas mensagens novas, alvos de 44 px.
 
 ### 7.5 Desempenho e acessibilidade
 
 - 3D e bibliotecas de animação carregados só após a primeira pintura e apenas em dispositivos capazes; `prefers-reduced-motion` e aparelhos fracos recebem versão estática/vídeo leve.
-- Metas: LCP < 2,5 s (4G), CLS < 0,1, Lighthouse mobile ≥ 90 (desempenho e acessibilidade).
+- Metas: LCP < 2,5 s (4G), CLS < 0,1, Lighthouse mobile ≥ 90 (desempenho e acessibilidade). Orçamento definido na 4a, medido com Lighthouse CI na 4b.
+- Fontes Poppins, Montserrat e JetBrains Mono auto-hospedadas, subconjunto latino, `font-display: swap`; nenhuma CDN de fonte no caminho crítico.
 - Navegação por teclado, foco visível, contraste AA.
+
+### 7.6 Ondas de entrega
+
+| Onda | Entrega |
+|---|---|
+| **4a** | Vitrine completa, widget funcionando, SEO, testes, Docker no Easypanel e site no ar. Visual Carrara Lab Noturno em CSS/SVG (grade técnica, cotas, veios, régua de rugosidade). Fecha com o **teste ponta a ponta da Etapa 3 em produção**. |
+| **4b** | Assinatura 3D em WebGL no hero, faíscas ao abrir o chat, narrativa na rolagem (GSAP ScrollTrigger + Lenis), View Transitions entre card e produto, Lighthouse CI com orçamento. Nenhuma página muda de layout: a 4b preenche caixas que a 4a já deixou no tamanho final. |
+
+### 7.7 Configuração e deploy
+
+- Servidor: `CRM_URL`, `CATALOG_KEY`, `SITE_REVALIDATE_SECRET`, `SITE_URL`, `EMPRESA_RAZAO_SOCIAL`, `EMPRESA_CNPJ`, `EMPRESA_EMAIL_ENCARREGADO`.
+- Navegador: `NEXT_PUBLIC_CRM_URL`, `NEXT_PUBLIC_WEBCHAT_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_WHATSAPP_FALLBACK`.
+- No CRM (configuração, sem código): `SITE_REVALIDATE_URL` e `SITE_REVALIDATE_SECRET` no ambiente; `https://m10abrasivos.com.br` e `http://localhost:3001` nas origens permitidas do canal "Site".
+- Dockerfile multi-estágio com `output: "standalone"`, usuário sem privilégio, publicado no Easypanel ao lado do CRM. O build lê a API do CRM, então `CRM_URL` precisa ser alcançável de onde o build roda.
 
 ---
 
@@ -305,7 +332,7 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 3. **O cliente inicia a conversa** (sem template pago e sem risco de bloqueio em provedores não oficiais).
 4. O canal WhatsApp recebe; o router reconhece o contato pelo telefone.
 5. A IA do WhatsApp recebe o resumo no prompt (6.6) e continua o atendimento.
-6. A conversa do site recebe a nota "Cliente seguiu no WhatsApp" e é marcada como resolvida.
+6. A conversa do site recebe a nota "Cliente seguiu no WhatsApp" e é marcada como resolvida. **Pendente:** adiado na Etapa 3 (R22, exige mexer no router do WhatsApp); não entra nas ondas 4a nem 4b.
 
 ---
 
@@ -332,7 +359,7 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 - API pública de catálogo lê só a view sem preço/estoque; chave pública não dá acesso a outros dados.
 - Tokens do Bling e segredos de canal apenas no servidor (mesma regra dos tokens de WhatsApp).
 - RLS `enable` (nunca `force`) em todas as novas tabelas, conforme regra do CRM.
-- LGPD: aviso no widget, consentimento ao informar WhatsApp registrado na conversa, página de privacidade.
+- LGPD: aviso no widget (onda 4a) e página de privacidade (onda 4a). O registro do consentimento na conversa ao informar o WhatsApp é código do CRM, adiado na Etapa 3 (R22) — fora das ondas 4a e 4b.
 
 ---
 
@@ -352,10 +379,11 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 
 ### Site (Vitest + Playwright)
 
-- HTML de home, categoria e produto **não contém preço** (busca por padrões `R$`/valores).
-- Abrir chat, enviar mensagem, receber resposta (CRM de teste), indicador de digitação, botão WhatsApp após evento de handoff.
+- HTML de home, categoria e produto **não contém preço** (busca por padrões `R$`/valores, inclusive no JSON-LD).
+- **Unitários:** cliente do catálogo (payload válido, campo faltando, CRM com 500, chave recusada); descrição montada só com fatos da ficha; ordenação numérica por grana; filtros derivados; `/api/revalidate` (Bearer certo, errado e ausente; tag inválida); rota de imagem (URL vencida, item inexistente, cabeçalhos de cache); link `wa.me` com o prefixo exato; reconciliação por `externalId`; descarte do cursor inclusivo; fila de bolhas com pausa; 401 com CORS e 429.
+- **Ponta a ponta:** abrir chat, enviar mensagem, receber resposta (CRM de teste), indicador de digitação, botão WhatsApp após evento de handoff.
 - Fallback sem CRM exibe botão WhatsApp.
-- Lighthouse CI com as metas da seção 7.5.
+- Lighthouse CI com as metas da seção 7.5 (onda 4b).
 
 ---
 
@@ -363,12 +391,17 @@ A direção Carrara Lab (grade técnica, cotas de medida, veios de mármore) foi
 
 Cada subprojeto recebe seu próprio plano de implementação e é entregue funcionando antes do próximo:
 
-1. **CRM — Catálogo, Bling e Kits** (seção 4)
-2. **CRM — Canal webchat** (seção 5) — testável com uma página HTML simples
-3. **CRM — Agente vendedor + passagem para WhatsApp** (seções 6 e 8)
-4. **Site — Vitrine + widget** (seção 7)
+1. **CRM — Catálogo, Bling e Kits** (seção 4) — entregue
+2. **CRM — Canal webchat** (seção 5) — entregue, testado com `public/webchat-teste.html`
+3. **CRM — Agente vendedor + passagem para WhatsApp** (seções 6 e 8) — entregue e em produção; falta o teste ponta a ponta, que acontece no fim da onda 4a
+4. **Site — Vitrine + widget** (seção 7) — em duas ondas, 4a e 4b (seção 7.6)
 
-Plano do subprojeto 1: `docs/superpowers/plans/2026-09-17-etapa-1-catalogo-bling-kits.md`.
+Planos:
+
+- `docs/superpowers/plans/2026-09-17-etapa-1-catalogo-bling-kits.md`
+- `docs/superpowers/plans/2026-09-17-etapa-2-canal-webchat.md`
+- `docs/superpowers/plans/2026-09-17-etapa-3-agente-vendedor.md`
+- `docs/superpowers/plans/2026-09-21-etapa-4a-site-vitrine-widget.md`
 
 ---
 
@@ -386,4 +419,6 @@ Valores com padrão definido; o usuário pode alterá-los antes ou durante a imp
 | Limite de quantidade por item | 20 |
 | Domínios do site e do CRM | Configurados no Easypanel e em `allowedOrigins` |
 | Credenciais do Bling (app OAuth) | Necessárias para o subprojeto 1 |
-| Conta Cloudflare Turnstile | Necessária para o subprojeto 2 |
+| Conta Cloudflare Turnstile | Necessária antes de o site ir ao ar (o canal aceita sem desafio até lá) |
+| Razão social, CNPJ e e-mail do encarregado | Necessários para a página `/privacidade` (`EMPRESA_*`) |
+| Título e descrição próprios dos itens no CRM | Opcional; sem eles o site usa o nome do Bling e uma frase montada da ficha |
