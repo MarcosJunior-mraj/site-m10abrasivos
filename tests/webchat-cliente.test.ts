@@ -51,7 +51,10 @@ function json(corpo: unknown, status = 200): Response {
   });
 }
 
-function montar(respostas: Response[], armazenamento = memoria()) {
+function montar(
+  respostas: Response[],
+  armazenamento: Pick<Storage, "getItem" | "setItem" | "removeItem"> = memoria(),
+) {
   const chamadas: { url: string; init: RequestInit }[] = [];
   const fontes: FonteFalsa[] = [];
   const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
@@ -288,5 +291,112 @@ describe("fluxo de eventos", () => {
     await cliente.sincronizar();
 
     expect(cliente.estado.bolhas.map((b) => b.texto)).toEqual(["Bem-vindo", "Nova"]);
+  });
+
+  it("onerror do EventSource cai para o WhatsApp em vez de ficar mudo", async () => {
+    const { cliente, fontes } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    cliente.conectar();
+
+    fontes[0]?.onerror?.(new Event("error"));
+
+    expect(cliente.estado.fase).toBe("degradado");
+    expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+  });
+
+  it("mensagem malformada no SSE não derruba o cliente nem some sem rastro", async () => {
+    const { cliente, fontes } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    cliente.conectar();
+
+    expect(() =>
+      fontes[0]?.ouvintes.get("mensagem")?.({ data: "{ isto não é json" }),
+    ).not.toThrow();
+    expect(cliente.estado.fase).toBe("pronto");
+
+    expect(() =>
+      fontes[0]?.ouvintes.get("digitando")?.({ data: "{ isto também não é json" }),
+    ).not.toThrow();
+    expect(cliente.estado.digitando).toBe(false);
+  });
+
+  it("rajada de eventos reconectar não abre várias conexões seguidas", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cliente, fontes } = montar([json(SESSAO_OK)]);
+      await cliente.abrir();
+      cliente.conectar();
+
+      fontes[0]?.emitir("reconectar", {});
+      fontes[1]?.emitir("reconectar", {});
+      fontes[1]?.emitir("reconectar", {});
+
+      expect(fontes).toHaveLength(2);
+
+      vi.advanceTimersByTime(15_000);
+      fontes[1]?.emitir("reconectar", {});
+
+      expect(fontes).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("depois de várias tentativas seguidas de reconectar, desiste e oferece o WhatsApp", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cliente, fontes } = montar([json(SESSAO_OK)]);
+      await cliente.abrir();
+      cliente.conectar();
+
+      // O teto é 5 tentativas seguidas; a 6ª rajada (já espaçada pelo piso de 15 s) desiste.
+      for (let tentativa = 0; tentativa < 6; tentativa += 1) {
+        vi.advanceTimersByTime(15_000);
+        fontes.at(-1)?.emitir("reconectar", {});
+      }
+
+      expect(cliente.estado.fase).toBe("degradado");
+      expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("reentrância de abrir()", () => {
+  it("duas chamadas sem esperar uma acabar geram uma única requisição de sessão", async () => {
+    const { cliente, chamadas } = montar([json(SESSAO_OK)]);
+
+    const p1 = cliente.abrir();
+    const p2 = cliente.abrir();
+    await Promise.all([p1, p2]);
+
+    expect(chamadas).toHaveLength(1);
+    expect(cliente.estado.fase).toBe("pronto");
+  });
+});
+
+describe("armazenamento indisponível", () => {
+  function armazenamentoQuebrado(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
+    return {
+      getItem: (): string | null => {
+        throw new Error("armazenamento bloqueado");
+      },
+      setItem: (): void => {
+        throw new Error("armazenamento bloqueado");
+      },
+      removeItem: (): void => {
+        throw new Error("armazenamento bloqueado");
+      },
+    };
+  }
+
+  it("getItem/setItem que lançam não travam o widget em 'abrindo'", async () => {
+    const { cliente } = montar([json(SESSAO_OK)], armazenamentoQuebrado());
+
+    await cliente.abrir();
+
+    expect(cliente.estado.fase).not.toBe("abrindo");
+    expect(["pronto", "degradado"]).toContain(cliente.estado.fase);
   });
 });
