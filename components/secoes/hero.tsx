@@ -19,7 +19,7 @@ export function Hero() {
         <div>
           <button
             type="button"
-            data-abrir-chat
+            data-abrir-chat=""
             className="rounded-tecnico bg-laranja px-6 py-3 font-semibold text-azul hover:brightness-110"
           >
             Falar com especialista
