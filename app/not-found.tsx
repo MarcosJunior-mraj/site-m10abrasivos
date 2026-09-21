@@ -1,5 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { GradeTecnica } from "@/components/marca/grade-tecnica";
+
+export const metadata: Metadata = {
+  title: "Página não encontrada",
+};
 
 export default function NaoEncontrada() {
   return (

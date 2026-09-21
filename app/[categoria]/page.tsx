@@ -3,28 +3,19 @@ import { notFound } from "next/navigation";
 import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
 import { Cabecalho } from "@/components/layout/cabecalho";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
-
-/** Caminhos que são páginas de verdade ou rotas do site — nunca categoria. */
-const RESERVADOS = new Set([
-  "produto",
-  "privacidade",
-  "api",
-  "imagens",
-  "sitemap.xml",
-  "robots.txt",
-]);
+import { ehSlugReservado } from "@/lib/rotas";
 
 export const dynamicParams = true;
 
 export async function generateStaticParams(): Promise<{ categoria: string }[]> {
   const categorias = await buscarCategorias();
   return categorias
-    .filter((categoria) => !RESERVADOS.has(categoria.slug))
+    .filter((categoria) => !ehSlugReservado(categoria.slug))
     .map((categoria) => ({ categoria: categoria.slug }));
 }
 
 async function carregar(slug: string) {
-  if (RESERVADOS.has(slug)) return null;
+  if (ehSlugReservado(slug)) return null;
   const categorias = await buscarCategorias();
   const categoria = categorias.find((c) => c.slug === slug);
   if (!categoria) return null;
