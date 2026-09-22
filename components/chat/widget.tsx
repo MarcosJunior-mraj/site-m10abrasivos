@@ -14,6 +14,8 @@ const CHAVE_LGPD = "m10_lgpd_aceito";
 const ESPERA_MAXIMA_MS = 45_000;
 /** Aba escondida por mais que isto: fecha o fluxo e devolve a vaga no CRM. */
 const ESPERA_PARA_DESLIGAR_MS = 60_000;
+const AVISO_CONTINGENCIA =
+  "Nosso especialista está demorando para responder. Se preferir, continue pelo WhatsApp.";
 
 function leu(chave: string): string | null {
   try {
@@ -33,6 +35,14 @@ export function Widget() {
   const [estado, setEstado] = useState<EstadoDoChat | null>(null);
   const [visiveis, setVisiveis] = useState(0);
   const [naoLidas, setNaoLidas] = useState(0);
+  /**
+   * Fonte de verdade PRÓPRIA do widget para a contingência de 45 s — nunca
+   * escrita dentro de `estado` (que vem do núcleo). O núcleo substitui
+   * `estado` inteiro a cada mudança (`aoMudar`), então qualquer coisa que a
+   * interface gravasse ali (ex.: um "digitando" chegando depois do timer)
+   * apagaria a oferta de WhatsApp sem querer.
+   */
+  const [contingenciaAtiva, setContingenciaAtiva] = useState(false);
 
   const clienteRef = useRef<ClienteWebchat | null>(null);
   const enfileiradasRef = useRef(0);
@@ -81,9 +91,14 @@ export function Widget() {
           if (!abertoRef.current) setNaoLidas((quantas) => quantas + 1);
         }
       }
-      if (novo.bolhas.at(-1)?.de === "especialista" && contingenciaRef.current) {
-        clearTimeout(contingenciaRef.current);
-        contingenciaRef.current = null;
+      // Resposta de verdade do especialista: encerra a contingência (o timer
+      // pendente, se houver, e o banner que ele já tiver acendido).
+      if (novo.bolhas.at(-1)?.de === "especialista") {
+        if (contingenciaRef.current) {
+          clearTimeout(contingenciaRef.current);
+          contingenciaRef.current = null;
+        }
+        setContingenciaAtiva(false);
       }
     });
 
@@ -152,23 +167,31 @@ export function Widget() {
     return () => document.removeEventListener("visibilitychange", aoMudarVisibilidade);
   }, []);
 
-  useEffect(() => () => clienteRef.current?.encerrar(), []);
+  // Em modo estrito o React monta, desmonta e monta de novo: sem zerar as
+  // refs aqui, a remontagem encontraria `clienteRef.current` ainda apontando
+  // para o cliente morto e o devolveria sem reassinar `aoMudar` — o chat
+  // ficaria mudo pelo resto da sessão, sem erro nenhum.
+  useEffect(() => {
+    return () => {
+      clienteRef.current?.encerrar();
+      clienteRef.current = null;
+      if (contingenciaRef.current) {
+        clearTimeout(contingenciaRef.current);
+        contingenciaRef.current = null;
+      }
+      if (desligarRef.current) {
+        clearTimeout(desligarRef.current);
+        desligarRef.current = null;
+      }
+    };
+  }, []);
 
   async function enviar(texto: string) {
     const cliente = garantirCliente();
     await cliente.enviar(texto, { url: location.href, item: itemRef.current });
     if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
     contingenciaRef.current = setTimeout(() => {
-      setEstado((atual) =>
-        atual
-          ? {
-              ...atual,
-              ofereceuWhatsapp: true,
-              aviso:
-                "Nosso especialista está demorando para responder. Se preferir, continue pelo WhatsApp.",
-            }
-          : atual,
-      );
+      setContingenciaAtiva(true);
     }, ESPERA_MAXIMA_MS);
   }
 
@@ -178,7 +201,9 @@ export function Widget() {
         ref={botaoRef}
         type="button"
         data-testid="botao-chat"
-        onClick={() => void abrir(itemRef.current)}
+        // Alterna: aberto fecha sem rede nenhuma (a cota é de 200 req/dia por
+        // sessão, e um clique de fechar não pode custar uma sincronização).
+        onClick={() => (aberto ? fechar() : void abrir(itemRef.current))}
         aria-expanded={aberto}
         className="fixed bottom-4 right-4 z-50 min-h-14 rounded-tecnico bg-laranja px-5 font-semibold text-azul shadow-lg"
       >
@@ -207,7 +232,14 @@ export function Widget() {
 
       {aberto && !precisaAceitar && estado ? (
         <Painel
-          estado={{ ...estado, bolhas: estado.bolhas.slice(0, visiveis) }}
+          estado={{
+            ...estado,
+            bolhas: estado.bolhas.slice(0, visiveis),
+            // Combinadas só na hora de renderizar: a contingência é estado do
+            // widget, nunca escrito dentro do `estado` que veio do núcleo.
+            ofereceuWhatsapp: estado.ofereceuWhatsapp || contingenciaAtiva,
+            aviso: estado.aviso ?? (contingenciaAtiva ? AVISO_CONTINGENCIA : null),
+          }}
           aoEnviar={(texto) => void enviar(texto)}
           aoFechar={fechar}
         />
