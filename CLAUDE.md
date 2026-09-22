@@ -43,6 +43,19 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   stale-while-revalidate=604800` — a resposta ESTÁVEL é cacheada, não a URL
   volátil de origem). `revalidateTag("catalog")` também derruba essa rota,
   então foto trocada no Bling aparece na revalidação seguinte.
+- **A rota de imagem é um proxy no servidor — por isso é fechada**: só busca
+  em hosts da lista única de `lib/catalog/origem-de-imagem.ts` (armazenamento
+  do Bling, a origem do próprio `CRM_URL` e `IMAGENS_HOSTS_EXTRAS`),
+  `https:` obrigatório fora do CRM, `redirect: "error"`, só
+  jpeg/png/webp/avif/gif (SVG nunca), teto de 5 MB, e responde com
+  `nosniff` + `content-security-policy: default-src 'none'; sandbox`. Se o
+  Bling mudar de armazenamento, as fotos passam a dar 404 — o conserto é
+  naquela lista.
+- **Preço também é barrado aqui** (segunda trava, depois da do CRM): spec,
+  descrição e campos de SEO são texto livre digitado no CRM, então
+  `lib/catalog/sem-preco.ts` tira da tela o par de spec ou a frase que fala
+  de preço (exige contexto de moeda — `\d+,\d{2}` sozinho pegaria medidas como
+  "12,50 mm").
 
 ## Como o widget fala com o CRM
 
@@ -65,9 +78,23 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   tentativas, teto de 5 tentativas seguidas antes de cair para o link de
   WhatsApp — ver `RECONEXAO_INTERVALO_MINIMO_MS` /
   `RECONEXAO_TENTATIVAS_MAXIMAS` em `lib/webchat/cliente.ts`).
-- Sem sessão, IP bloqueado ou CRM fora do ar, o widget degrada para um botão
-  de link direto ao WhatsApp (`NEXT_PUBLIC_WHATSAPP_FALLBACK`) — nunca trava
-  numa tela sem saída.
+- Queda do SSE (fonte `CLOSED`, ex.: 502) não degrada na hora: espera o
+  piso, sincroniza e religa pelo mesmo freio. Aba escondida por mais de 60 s
+  desliga o fluxo; só nesse caso a volta à aba sincroniza e religa.
+- Sem sessão, IP bloqueado, CRM fora do ar, resposta fora do formato
+  (validada com `zod/mini` em `lib/webchat/esquemas.ts`) ou Turnstile com
+  problema, o widget degrada para um botão de link direto ao WhatsApp
+  (`NEXT_PUBLIC_WHATSAPP_FALLBACK`) — nunca trava numa tela sem saída. O
+  painel aparece já em "abrindo", com o WhatsApp à mão.
+- **Carga sob demanda (spec 7.4)**: `components/chat/widget.tsx` é só o botão
+  e a casca do painel; aviso de LGPD, painel, Turnstile e o cliente vêm de
+  `components/chat/chat-completo.tsx` por `React.lazy` no primeiro clique.
+  Quem volta com sessão salva não abre sessão nem SSE até clicar. O teste
+  `tests/fronteira-do-cliente.test.ts` segue os imports estáticos do widget e
+  do rodapé e falha se algum alcançar Zod, `server-only` ou o chat pesado.
+- **Configuração em dois arquivos**: `lib/config.ts` é de servidor (Zod +
+  `import "server-only"` — importar num componente de cliente quebra o
+  build); `lib/config-publica.ts` tem só as `NEXT_PUBLIC_*`, sem Zod.
 
 ## Contratos do CRM (resumo — a fonte completa é lá)
 
@@ -90,7 +117,15 @@ primeiro — mudar um lado sem o outro quebra em produção sem aviso em build.
 ## Variáveis de ambiente
 
 Servidor (nunca viram `NEXT_PUBLIC_*`, nunca em arquivo versionado com valor
-real — só `.env.example` com placeholder):
+real — só `.env.example` com placeholder).
+
+**No Easypanel, cada variável de servidor precisa existir DUAS vezes**: como
+variável de ambiente de **runtime** do serviço (o `node server.js` lê o
+catálogo, a rota de imagem e `/api/revalidate` em execução) **e** como
+**build arg** (o `npm run build` dentro do `Dockerfile` já lê o catálogo do
+CRM para gerar as páginas estáticas e valida a configuração). Faltando no
+build, o build falha; faltando só em runtime, o site sobe e quebra na
+primeira revalidação ou foto.
 
 | Variável | Uso |
 |---|---|
@@ -101,6 +136,7 @@ real — só `.env.example` com placeholder):
 | `EMPRESA_RAZAO_SOCIAL` | Exibida em `/privacidade` |
 | `EMPRESA_CNPJ` | Exibida em `/privacidade` |
 | `EMPRESA_EMAIL_ENCARREGADO` | E-mail do encarregado LGPD, exibido em `/privacidade` |
+| `IMAGENS_HOSTS_EXTRAS` | Opcional. Hosts (vírgula) além do Bling de onde `/imagens` pode buscar foto — ex.: foto de kit hospedada fora |
 
 Navegador (gravadas no pacote do navegador **durante o build** — por isso
 precisam existir como `ARG` no `Dockerfile` e como variável no momento de
@@ -111,7 +147,7 @@ precisam existir como `ARG` no `Dockerfile` e como variável no momento de
 | `NEXT_PUBLIC_CRM_URL` | URL do CRM usada pelo navegador para falar com o webchat |
 | `NEXT_PUBLIC_WEBCHAT_KEY` | Chave pública do webchat (`x-webchat-key`) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Site key do Cloudflare Turnstile |
-| `NEXT_PUBLIC_WHATSAPP_FALLBACK` | Número (só dígitos) do botão de contingência do chat |
+| `NEXT_PUBLIC_WHATSAPP_FALLBACK` | Número (só dígitos) do botão de contingência do chat. **Obrigatório: vazio derruba o build** (`lib/conferir-build.ts`, chamado pelo `next.config.ts`) |
 
 Ver `.env.example` para os comentários de cada uma.
 
@@ -165,3 +201,13 @@ Ver `.env.example` para os comentários de cada uma.
   regressão — se for escrever um teste de guarda, ele precisa exercitar o
   `fetch` padrão (sem injeção) e checar o `this` recebido, não só "não
   lançou".
+- **Cabeçalho do `next.config.ts` sobrescreve o da rota.** Um
+  `Content-Security-Policy` em `headers()` com `source: "/:path*"` apagava a
+  CSP com `sandbox` que a rota `/imagens` manda — só aparece rodando o
+  servidor de produção e olhando o cabeçalho (`curl -D -`), não em teste de
+  unidade. Por isso a CSP da config usa `/((?!imagens/).*)`.
+- **`.next/cache` guarda o Data Cache entre builds.** Um `npm run build`
+  novo reaproveita as respostas do catálogo gravadas pelo anterior (a
+  revalidação é de 1 h): mudar o CRM falso e rodar a e2e sem apagar `.next`
+  testa o catálogo VELHO. Antes de uma rodada de `npm run test:e2e` que
+  dependa de mudança no `tests/e2e/crm-falso.ts`, apague `.next`.
