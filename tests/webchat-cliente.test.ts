@@ -366,17 +366,88 @@ describe("fluxo de eventos", () => {
     expect(cliente.estado.bolhas.map((b) => b.texto)).toEqual(["Bem-vindo", "Nova"]);
   });
 
-  it("onerror com a fonte definitivamente fechada cai para o WhatsApp", async () => {
-    const { cliente, fontes } = montar([json(SESSAO_OK)]);
-    await cliente.abrir();
-    cliente.conectar();
+  it("502 no stream (fonte fechada) seguido de sucesso não degrada: reconecta depois do piso e sincroniza", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cliente, fontes, chamadas } = montar([
+        json(SESSAO_OK),
+        json({ data: { messages: [], typing: false } }),
+      ]);
+      await cliente.abrir();
+      cliente.conectar();
 
-    const fonte = fontes[0];
-    if (fonte) fonte.fechadaDefinitivamente = true;
-    fonte?.onerror?.(new Event("error"));
+      const caida = fontes[0];
+      if (caida) caida.fechadaDefinitivamente = true;
+      caida?.onerror?.(new Event("error"));
 
-    expect(cliente.estado.fase).toBe("degradado");
-    expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+      expect(cliente.estado.fase).toBe("pronto");
+      expect(caida?.fechada).toBe(true);
+      expect(fontes).toHaveLength(1);
+
+      // Nada antes do piso de 15 s (é o `retry:` que o CRM manda).
+      await vi.advanceTimersByTimeAsync(14_000);
+      expect(fontes).toHaveLength(1);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(chamadas.at(-1)?.url).toBe(
+        `${CRM}/api/public/webchat/messages?after=${encodeURIComponent("2026-09-21T10:00:00.000Z")}`,
+      );
+      expect(fontes).toHaveLength(2);
+
+      fontes[1]?.emitir("mensagem", mensagem({ id: "depois", body: "Voltei" }));
+      expect(cliente.estado.fase).toBe("pronto");
+      expect(cliente.estado.bolhas.at(-1)?.texto).toBe("Voltei");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stream que fecha toda vez degrada só quando o freio de 5 tentativas esgota", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cliente, fontes } = montar([json(SESSAO_OK)]);
+      await cliente.abrir();
+      cliente.conectar();
+
+      for (let queda = 0; queda < 5; queda += 1) {
+        const fonte = fontes.at(-1);
+        if (fonte) fonte.fechadaDefinitivamente = true;
+        fonte?.onerror?.(new Event("error"));
+        expect(cliente.estado.fase).toBe("pronto");
+        await vi.advanceTimersByTimeAsync(15_000);
+      }
+      expect(fontes).toHaveLength(6);
+
+      const ultima = fontes.at(-1);
+      if (ultima) ultima.fechadaDefinitivamente = true;
+      ultima?.onerror?.(new Event("error"));
+
+      expect(cliente.estado.fase).toBe("degradado");
+      expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fontes).toHaveLength(6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("desconectar de propósito cancela a reconexão agendada", async () => {
+    vi.useFakeTimers();
+    try {
+      const { cliente, fontes } = montar([json(SESSAO_OK)]);
+      await cliente.abrir();
+      cliente.conectar();
+
+      const caida = fontes[0];
+      if (caida) caida.fechadaDefinitivamente = true;
+      caida?.onerror?.(new Event("error"));
+      cliente.desconectar();
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(fontes).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("onerror com a fonte ainda tentando reconectar sozinha não muda nada", async () => {

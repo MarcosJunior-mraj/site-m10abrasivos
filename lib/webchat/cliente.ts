@@ -85,6 +85,11 @@ export class ClienteWebchat {
   private aberturaEmAndamento: Promise<void> | null = null;
   private ultimaReconexaoEm = 0;
   private tentativasDeReconexaoSeguidas = 0;
+  /** Quando a fonte atual foi aberta: o piso de reconexão depois de uma queda conta daqui. */
+  private ultimaConexaoEm = 0;
+  private reconexaoAgendada: ReturnType<typeof setTimeout> | null = null;
+  /** Muda a cada `desconectar()`: uma reconexão agendada antes disso não vale mais. */
+  private geracaoDoFluxo = 0;
 
   constructor(private readonly deps: DepsDoChat) {
     this.base = `${deps.crmUrl.replace(/\/+$/, "")}/api/public/webchat`;
@@ -333,6 +338,7 @@ export class ClienteWebchat {
 
     const fonte = this.criarFonte(url);
     this.fonte = fonte;
+    this.ultimaConexaoEm = Date.now();
     fonte.addEventListener("mensagem", (evento) => this.tratarMensagemRecebida(evento));
     fonte.addEventListener("digitando", (evento) => this.tratarDigitando(evento));
     fonte.addEventListener("vendedor_entrou", () => {
@@ -347,10 +353,36 @@ export class ClienteWebchat {
     fonte.onerror = () => {
       // Oscilação passageira (readyState ainda CONNECTING): o próprio
       // EventSource já vai reconectar sozinho, não há nada a fazer aqui.
-      if (!fonte.estaFechada()) return;
+      if (!fonte.estaFechada() || this.fonte !== fonte) return;
+      // Fechada de vez (ex.: 502 no stream): o navegador desistiu, então a
+      // reconexão é nossa — pelo mesmo freio do evento `reconectar`.
       this.desconectar();
-      this.cairParaWhatsapp("A conexão com o atendimento caiu. Continue pelo WhatsApp.");
+      this.reconectarDepoisDaQueda();
     };
+  }
+
+  /**
+   * Spec 9: queda do SSE não é motivo para largar a conversa. Espera o piso
+   * (contado desde a abertura da fonte que caiu), busca o que chegou nesse
+   * meio-tempo e religa por `tentarReconectar()`. Só degrada para o
+   * WhatsApp quando o teto de tentativas seguidas esgota.
+   */
+  private reconectarDepoisDaQueda(): void {
+    if (this.tentativasDeReconexaoSeguidas >= RECONEXAO_TENTATIVAS_MAXIMAS) {
+      this.cairParaWhatsapp(
+        "Perdi a conexão com o atendimento depois de várias tentativas. Continue pelo WhatsApp.",
+      );
+      return;
+    }
+    const geracao = this.geracaoDoFluxo;
+    const espera = Math.max(0, this.ultimaConexaoEm + RECONEXAO_INTERVALO_MINIMO_MS - Date.now());
+    this.reconexaoAgendada = setTimeout(() => {
+      this.reconexaoAgendada = null;
+      void this.sincronizar().then(() => {
+        if (geracao !== this.geracaoDoFluxo || this.estado.fase === "degradado") return;
+        this.tentarReconectar();
+      });
+    }, espera);
   }
 
   /** Payload malformado não pode derrubar o listener nem sumir sem rastro: ignora só aquele evento. */
@@ -398,6 +430,9 @@ export class ClienteWebchat {
   }
 
   desconectar(): void {
+    this.geracaoDoFluxo += 1;
+    if (this.reconexaoAgendada) clearTimeout(this.reconexaoAgendada);
+    this.reconexaoAgendada = null;
     this.fonte?.close();
     this.fonte = null;
   }
