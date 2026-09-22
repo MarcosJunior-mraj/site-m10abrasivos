@@ -587,3 +587,25 @@ describe("armazenamento indisponível", () => {
     expect(["pronto", "degradado"]).toContain(cliente.estado.fase);
   });
 });
+
+describe("fase degradada", () => {
+  it("conectar() num cliente degradado não abre fonte nenhuma", async () => {
+    const { cliente, fontes } = montar([json({}, 500)]);
+    await cliente.abrir();
+    expect(cliente.estado.fase).toBe("degradado");
+
+    cliente.conectar();
+
+    expect(fontes).toHaveLength(0);
+  });
+
+  it("conectar() depois de cair para o WhatsApp com sessão válida também não reconecta", async () => {
+    const { cliente, fontes } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    cliente.cairParaWhatsapp("Continue pelo WhatsApp.");
+
+    cliente.conectar();
+
+    expect(fontes).toHaveLength(0);
+  });
+});

@@ -330,7 +330,8 @@ export class ClienteWebchat {
   }
 
   conectar(): void {
-    if (!this.token) return;
+    // Degradado é definitivo: o visitante já foi mandado ao WhatsApp.
+    if (!this.token || this.estado.fase === "degradado") return;
     this.desconectar();
 
     let url = `${this.base}/stream?token=${encodeURIComponent(this.token)}`;

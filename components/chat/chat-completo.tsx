@@ -76,6 +76,8 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   const itemRef = useRef<string | null>(null);
   const contingenciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desligarRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Só `true` quando o timer de 60 s de fato desligou o fluxo: é o que autoriza religar ao voltar. */
+  const desligadoPorInatividadeRef = useRef(false);
   const abertoRef = useRef(aberto);
   const aoChegarNaoLidaRef = useRef(aoChegarNaoLida);
 
@@ -158,18 +160,32 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   }, [pedido.id, iniciar]);
 
   // Aba escondida por mais de um minuto: fecha o fluxo. Ao voltar, sincroniza e
-  // reconecta. É o que substitui o poll, que estouraria a cota diária.
+  // reconecta — SÓ se o fluxo foi mesmo desligado. Aba escondida por menos
+  // que isso só cancela o timer: o SSE seguiu ligado e religar gastaria cota
+  // (20 req/min, 200/dia) à toa. É o que substitui o poll.
   useEffect(() => {
     function aoMudarVisibilidade() {
       const cliente = clienteRef.current;
       if (!cliente) return;
       if (document.visibilityState === "hidden") {
-        desligarRef.current = setTimeout(() => cliente.desconectar(), ESPERA_PARA_DESLIGAR_MS);
+        if (desligarRef.current) clearTimeout(desligarRef.current);
+        desligarRef.current = setTimeout(() => {
+          desligarRef.current = null;
+          cliente.desconectar();
+          desligadoPorInatividadeRef.current = true;
+        }, ESPERA_PARA_DESLIGAR_MS);
         return;
       }
       if (desligarRef.current) clearTimeout(desligarRef.current);
       desligarRef.current = null;
-      void cliente.sincronizar().then(() => cliente.conectar());
+      if (!desligadoPorInatividadeRef.current) return;
+      desligadoPorInatividadeRef.current = false;
+      // Degradado é definitivo nesta página: o visitante já foi mandado ao WhatsApp.
+      if (cliente.estado.fase === "degradado") return;
+      void cliente.sincronizar().then(() => {
+        if (clienteRef.current !== cliente || cliente.estado.fase === "degradado") return;
+        cliente.conectar();
+      });
     }
     document.addEventListener("visibilitychange", aoMudarVisibilidade);
     return () => document.removeEventListener("visibilitychange", aoMudarVisibilidade);

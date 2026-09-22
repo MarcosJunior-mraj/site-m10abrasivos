@@ -152,3 +152,101 @@ describe("Widget — montagem", () => {
     expect(ClienteWebchatFalso.instancias.at(-1)?.estado.fase).toBe("degradado");
   });
 });
+
+describe("Widget — aba escondida (I6)", () => {
+  let visibilidade: DocumentVisibilityState = "visible";
+
+  beforeEach(() => {
+    visibilidade = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibilidade,
+    });
+  });
+
+  function mudarVisibilidade(nova: DocumentVisibilityState): void {
+    visibilidade = nova;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+  }
+
+  async function abrirChat(): Promise<ClienteWebchatFalso> {
+    localStorage.setItem(CHAVE_LGPD, "1");
+    const usuario = userEvent.setup();
+    render(<Widget />);
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await screen.findByRole("textbox", { name: /mensagem/i });
+    const instancia = ClienteWebchatFalso.instancias.at(-1);
+    if (!instancia) throw new Error("cliente falso não foi criado");
+    return instancia;
+  }
+
+  it("aba escondida por menos de 60 s: ao voltar, não sincroniza nem reconecta (não gasta cota)", async () => {
+    const cliente = await abrirChat();
+    const sincronizacoes = cliente.chamadasDeSincronizar;
+    const conexoes = cliente.chamadasDeConectar;
+    vi.useFakeTimers();
+
+    mudarVisibilidade("hidden");
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    mudarVisibilidade("visible");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+
+    expect(cliente.chamadasDeSincronizar).toBe(sincronizacoes);
+    expect(cliente.chamadasDeConectar).toBe(conexoes);
+    expect(cliente.chamadasDeDesconectar).toBe(0);
+  });
+
+  it("aba escondida por mais de 60 s: desliga o fluxo e, ao voltar, sincroniza e reconecta uma vez", async () => {
+    const cliente = await abrirChat();
+    const sincronizacoes = cliente.chamadasDeSincronizar;
+    const conexoes = cliente.chamadasDeConectar;
+    vi.useFakeTimers();
+
+    mudarVisibilidade("hidden");
+    act(() => {
+      vi.advanceTimersByTime(61_000);
+    });
+    expect(cliente.chamadasDeDesconectar).toBe(1);
+
+    mudarVisibilidade("visible");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(cliente.chamadasDeSincronizar).toBe(sincronizacoes + 1);
+    expect(cliente.chamadasDeConectar).toBe(conexoes + 1);
+  });
+
+  it("cliente degradado nunca é reconectado ao voltar para a aba", async () => {
+    const cliente = await abrirChat();
+    act(() => {
+      cliente.cairParaWhatsapp("Continue pelo WhatsApp.");
+    });
+    const sincronizacoes = cliente.chamadasDeSincronizar;
+    const conexoes = cliente.chamadasDeConectar;
+    vi.useFakeTimers();
+
+    mudarVisibilidade("hidden");
+    act(() => {
+      vi.advanceTimersByTime(61_000);
+    });
+    mudarVisibilidade("visible");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(cliente.chamadasDeSincronizar).toBe(sincronizacoes);
+    expect(cliente.chamadasDeConectar).toBe(conexoes);
+  });
+});
