@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Widget } from "@/components/chat/widget";
 import { Rodape } from "@/components/layout/rodape";
 import { lerConfigServidor } from "@/lib/config";
 import { fonteMono, fonteTexto, fonteTitulo } from "./fontes";
@@ -26,6 +27,7 @@ export default function LayoutRaiz({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh antialiased">
         {children}
         <Rodape />
+        <Widget />
       </body>
     </html>
   );
