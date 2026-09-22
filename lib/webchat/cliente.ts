@@ -81,7 +81,13 @@ export class ClienteWebchat {
 
   constructor(private readonly deps: DepsDoChat) {
     this.base = `${deps.crmUrl.replace(/\/+$/, "")}/api/public/webchat`;
-    this.fetchImpl = deps.fetchImpl ?? fetch;
+    // `.bind(globalThis)`: todo uso real chama `this.fetchImpl(...)`, ou
+    // seja, com `this` apontando para a instância — e o `fetch` nativo do
+    // navegador exige que o `this` da chamada seja a própria `Window`
+    // (senão lança "Illegal invocation"). Sem o bind, a conversa nunca sai
+    // do modo degradado num navegador de verdade; só não apareceu antes
+    // porque todo teste de unidade injeta seu próprio `fetchImpl`.
+    this.fetchImpl = deps.fetchImpl ?? fetch.bind(globalThis);
     this.criarFonte = deps.criarFonte ?? criarFonteViaEventSource;
     this.armazenamento = deps.armazenamento ?? globalThis.localStorage;
     this.chaveGuardada = `webchat_token_${deps.chave}`;
