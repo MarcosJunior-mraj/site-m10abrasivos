@@ -28,6 +28,13 @@ export class ErroDoCatalogo extends Error {
 export type DepsDoCatalogo = {
   fetchImpl?: typeof fetch;
   env?: Record<string, string | undefined>;
+  /**
+   * Ignora o Data Cache do Next (`cache: "no-store"` em vez de
+   * `next: { tags, revalidate }`). Usada pela rota de imagem para reler o
+   * item quando o link assinado do Bling já venceu — sem isso, o CRM podia
+   * devolver de novo a mesma resposta cacheada com a URL velha.
+   */
+  semCache?: boolean;
 };
 
 /** Devolve o corpo em JSON, ou `null` quando o CRM responde 404. */
@@ -36,11 +43,15 @@ async function buscarJson(caminho: string, deps: DepsDoCatalogo): Promise<unknow
   const fetchImpl = deps.fetchImpl ?? fetch;
   const url = `${config.crmUrl}/api/public/catalog${caminho}`;
 
+  const opcoesDeCache: RequestInit = deps.semCache
+    ? { cache: "no-store" }
+    : { next: { tags: [TAG_CATALOGO], revalidate: REVALIDACAO_DE_SEGURANCA_S } };
+
   let resposta: Response;
   try {
     resposta = await fetchImpl(url, {
       headers: { "x-catalog-key": config.catalogKey },
-      next: { tags: [TAG_CATALOGO], revalidate: REVALIDACAO_DE_SEGURANCA_S },
+      ...opcoesDeCache,
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
     });
   } catch (erro) {

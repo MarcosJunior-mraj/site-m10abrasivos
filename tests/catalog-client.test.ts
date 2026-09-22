@@ -123,6 +123,32 @@ describe("cliente do catálogo", () => {
     expect(itens[0]?.images).toEqual(["https://orgbling.s3.amazonaws.com/foto?Signature=abc"]);
   });
 
+  it("com semCache, ignora o Data Cache (cache: no-store, sem tag/revalidate)", async () => {
+    await buscarItem(ITEM.slug, {
+      env: ENV,
+      fetchImpl: fetchFalso(respostaFalsa({ data: ITEM })),
+      semCache: true,
+    });
+
+    const chamada = chamadas[0];
+    expect((chamada?.init as { cache?: string }).cache).toBe("no-store");
+    expect((chamada?.init as { next?: unknown }).next).toBeUndefined();
+  });
+
+  it("sem semCache, mantém a tag e a revalidação de segurança (comportamento atual)", async () => {
+    await buscarItem(ITEM.slug, {
+      env: ENV,
+      fetchImpl: fetchFalso(respostaFalsa({ data: ITEM })),
+    });
+
+    const chamada = chamadas[0];
+    expect((chamada?.init as { cache?: string }).cache).toBeUndefined();
+    expect((chamada?.init as { next?: { tags?: string[]; revalidate?: number } }).next).toEqual({
+      tags: ["catalog"],
+      revalidate: 3600,
+    });
+  });
+
   it("busca categorias", async () => {
     const categorias = await buscarCategorias({
       env: ENV,

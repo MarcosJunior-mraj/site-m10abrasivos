@@ -40,6 +40,10 @@ export async function POST(requisicao: Request): Promise<Response> {
     return Response.json({ error: "Tag desconhecida." }, { status: 400 });
   }
 
-  revalidateTag(TAG_CATALOGO, "max");
+  // Expiração imediata: o primeiro visitante depois de um sync (ou de uma
+  // despublicação) já recebe dado novo. O profile "max" (stale-while-
+  // revalidate) entregava a versão velha antes de regenerar — ver
+  // .superpowers/sdd/2026-09-21-etapa-4a-site-vitrine-widget/prod-fix-2-brief.md.
+  revalidateTag(TAG_CATALOGO, { expire: 0 });
   return Response.json({ data: { ok: true } });
 }

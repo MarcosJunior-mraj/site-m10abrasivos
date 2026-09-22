@@ -124,6 +124,153 @@ describe("rota da imagem", () => {
   });
 });
 
+describe("rota da imagem — cache-control", () => {
+  beforeEach(() => {
+    buscarItem.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("toda resposta de falha (400/404/502) sai com cache-control no-store", async () => {
+    // 400: índice inválido, nem chega a buscar o item.
+    const resposta400 = await GET(
+      new Request("http://site/imagens/gt-50/abc"),
+      contexto("gt-50", "abc"),
+    );
+    expect(resposta400.status).toBe(400);
+    expect(resposta400.headers.get("cache-control")).toBe("no-store");
+
+    // 404: item sem aquela foto.
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    const resposta404 = await GET(
+      new Request("http://site/imagens/gt-50/9"),
+      contexto("gt-50", "9"),
+    );
+    expect(resposta404.status).toBe(404);
+    expect(resposta404.headers.get("cache-control")).toBe("no-store");
+
+    // 502: origem devolve erro genérico (não é link expirado).
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("erro", { status: 500 })),
+    );
+    const resposta502 = await GET(
+      new Request("http://site/imagens/gt-50/0"),
+      contexto("gt-50", "0"),
+    );
+    expect(resposta502.status).toBe(502);
+    expect(resposta502.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("sucesso mantém o cache-control público (não-store)", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }),
+      ),
+    );
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("cache-control")).toBe(
+      "public, max-age=86400, stale-while-revalidate=604800",
+    );
+  });
+});
+
+describe("rota da imagem — link assinado expirado (403 ou 400 'Request has expired')", () => {
+  const ITEM_V1 = { slug: "gt-50", images: ["https://orgbling.s3.amazonaws.com/v1?Signature=a"] };
+  const ITEM_V2 = { slug: "gt-50", images: ["https://orgbling.s3.amazonaws.com/v2?Signature=b"] };
+
+  beforeEach(() => {
+    buscarItem.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("403 na 1ª tentativa: relê o item SEM cache e a 2ª tentativa com link novo dá 200", async () => {
+    buscarItem.mockResolvedValueOnce(ITEM_V1).mockResolvedValueOnce(ITEM_V2);
+    const fetchFalso = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Access denied", { status: 403 }))
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }),
+      );
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+
+    expect(resposta.status).toBe(200);
+    expect(buscarItem).toHaveBeenCalledTimes(2);
+    // A releitura ignora o Data Cache.
+    expect(buscarItem.mock.calls[1]?.[1]).toMatchObject({ semCache: true });
+    expect(fetchFalso).toHaveBeenCalledTimes(2);
+    expect(String(fetchFalso.mock.calls[0]?.[0])).toBe(ITEM_V1.images[0]);
+    expect(String(fetchFalso.mock.calls[1]?.[0])).toBe(ITEM_V2.images[0]);
+  });
+
+  it("400 com XML 'Request has expired' também dispara a releitura e dá 200 na 2ª tentativa", async () => {
+    buscarItem.mockResolvedValueOnce(ITEM_V1).mockResolvedValueOnce(ITEM_V2);
+    const fetchFalso = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          "<Error><Code>AccessDenied</Code><Message>Request has expired</Message></Error>",
+          {
+            status: 400,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), { headers: { "content-type": "image/jpeg" } }),
+      );
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+
+    expect(resposta.status).toBe(200);
+    expect(buscarItem).toHaveBeenCalledTimes(2);
+  });
+
+  it("400 sem a mensagem 'Request has expired' NÃO tenta de novo (502 na primeira falha)", async () => {
+    buscarItem.mockResolvedValue(ITEM_V1);
+    const fetchFalso = vi.fn(
+      async () => new Response("<Error>Outra coisa</Error>", { status: 400 }),
+    );
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+
+    expect(resposta.status).toBe(502);
+    expect(buscarItem).toHaveBeenCalledTimes(1);
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+  });
+
+  it("403 nas duas tentativas: 502 no-store sem laço (só 2 buscas ao CRM, só 2 buscas à origem)", async () => {
+    buscarItem.mockResolvedValue(ITEM_V1);
+    const fetchFalso = vi.fn(async () => new Response("Access denied", { status: 403 }));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+
+    expect(resposta.status).toBe(502);
+    expect(resposta.headers.get("cache-control")).toBe("no-store");
+    expect(buscarItem).toHaveBeenCalledTimes(2);
+    expect(fetchFalso).toHaveBeenCalledTimes(2);
+  });
+
+  it("403 na 1ª tentativa e a releitura não tem mais a foto → 404 (sem tentar buscar origem de novo)", async () => {
+    buscarItem.mockResolvedValueOnce(ITEM_V1).mockResolvedValueOnce({ slug: "gt-50", images: [] });
+    const fetchFalso = vi.fn(async () => new Response("Access denied", { status: 403 }));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+
+    expect(resposta.status).toBe(404);
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("rota da imagem — segurança do proxy", () => {
   const ORIGEM = ITEM_COM_FOTO.images[0] ?? "";
 

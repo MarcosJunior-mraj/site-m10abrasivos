@@ -34,7 +34,10 @@ describe("POST /api/revalidate", () => {
   it("revalida a tag do catálogo com o segredo certo", async () => {
     const resposta = await POST(pedido({ tag: "catalog" }, `Bearer ${SEGREDO}`));
     expect(resposta.status).toBe(200);
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "max");
+    // Expiração imediata: o primeiro visitante depois de um sync já recebe
+    // dado novo. Profile "max" (stale-while-revalidate) entregava a versão
+    // velha — ver prod-fix-2-brief.md.
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 
   it("recusa sem cabeçalho", async () => {
