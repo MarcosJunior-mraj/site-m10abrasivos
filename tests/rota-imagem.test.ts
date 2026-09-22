@@ -5,6 +5,17 @@ vi.mock("@/lib/catalog/client", () => ({
   buscarItem: (...args: unknown[]) => buscarItem(...args),
 }));
 
+vi.mock("@/lib/config", () => ({
+  lerConfigServidor: () => ({
+    crmUrl: "http://crm.local:3101",
+    catalogKey: "m10cat_abc",
+    revalidateSecret: "segredo-de-pelo-menos-16",
+    siteUrl: "https://site.exemplo",
+    imagensHostsExtras: ["fotos.m10abrasivos.com.br"],
+    empresa: { razaoSocial: "M10", cnpj: "0", emailEncarregado: "p@exemplo.com" },
+  }),
+}));
+
 import { GET } from "@/app/imagens/[slug]/[indice]/route";
 import { urlDaImagem } from "@/lib/catalog/imagens";
 
@@ -105,5 +116,158 @@ describe("rota da imagem", () => {
     );
     const resposta = await GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
     expect(resposta.status).toBe(502);
+  });
+});
+
+describe("rota da imagem — segurança do proxy", () => {
+  const ORIGEM = ITEM_COM_FOTO.images[0] ?? "";
+
+  function imagem(tipo: string, corpo: BodyInit = new Uint8Array([1, 2, 3])): Response {
+    return new Response(corpo, { headers: { "content-type": tipo } });
+  }
+
+  async function pedir(slug = "gt-50", indice = "0"): Promise<Response> {
+    return GET(new Request(`http://site/imagens/${slug}/${indice}`), contexto(slug, indice));
+  }
+
+  beforeEach(() => {
+    buscarItem.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("SVG vira 502 (poderia carregar script na origem do site)", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagem("image/svg+xml", "<svg><script>alert(1)</script></svg>")),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+  });
+
+  it("aceita tipo com parâmetro e maiúsculas, e devolve o tipo normalizado", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagem("Image/PNG; charset=binary")),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/png");
+  });
+
+  it("recusa tipo de imagem fora da lista (ex.: image/x-icon)", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagem("image/x-icon")),
+    );
+    expect((await pedir()).status).toBe(502);
+  });
+
+  it("responde com nosniff e CSP que isola o conteúdo", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagem("image/webp")),
+    );
+    const resposta = await pedir();
+    expect(resposta.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(resposta.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox");
+  });
+
+  it("não segue redirecionamento da origem", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    const fetchFalso = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
+      imagem("image/jpeg"),
+    );
+    vi.stubGlobal("fetch", fetchFalso);
+    await pedir();
+    expect(fetchFalso.mock.calls[0]?.[1]?.redirect).toBe("error");
+  });
+
+  it("host fora da lista não é buscado (404) e a resposta não vaza a URL de origem", async () => {
+    const url = "https://169.254.169.254/latest/meta-data?Signature=segredo";
+    buscarItem.mockResolvedValue({ slug: "gt-50", images: [url] });
+    const fetchFalso = vi.fn(async () => imagem("image/jpeg"));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    const resposta = await pedir();
+
+    expect(resposta.status).toBe(404);
+    expect(fetchFalso).not.toHaveBeenCalled();
+    expect(await resposta.text()).not.toContain("169.254");
+  });
+
+  it("recusa http mesmo em host do Bling", async () => {
+    buscarItem.mockResolvedValue({
+      slug: "gt-50",
+      images: ["http://orgbling.s3.amazonaws.com/foto.jpg"],
+    });
+    const fetchFalso = vi.fn(async () => imagem("image/jpeg"));
+    vi.stubGlobal("fetch", fetchFalso);
+    expect((await pedir()).status).toBe(404);
+    expect(fetchFalso).not.toHaveBeenCalled();
+  });
+
+  it("aceita a própria origem do CRM (é ele quem manda o catálogo) e hosts extras configurados", async () => {
+    const fetchFalso = vi.fn(async () => imagem("image/jpeg"));
+    vi.stubGlobal("fetch", fetchFalso);
+
+    buscarItem.mockResolvedValue({ slug: "gt-50", images: ["http://crm.local:3101/foto.jpg"] });
+    expect((await pedir()).status).toBe(200);
+
+    buscarItem.mockResolvedValue({
+      slug: "gt-50",
+      images: ["https://fotos.m10abrasivos.com.br/kit.jpg"],
+    });
+    expect((await pedir()).status).toBe(200);
+  });
+
+  it("corpo de erro nunca contém a URL de origem", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error(`falhou ao buscar ${ORIGEM}`);
+      }),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+    const corpo = await resposta.text();
+    expect(corpo).not.toContain("orgbling");
+    expect(corpo).not.toContain("Signature");
+  });
+
+  it("recusa imagem acima do teto pelo content-length, sem ler o corpo", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(new Uint8Array([1]), {
+            headers: { "content-type": "image/jpeg", "content-length": String(6 * 1024 * 1024) },
+          }),
+      ),
+    );
+    expect((await pedir()).status).toBe(502);
+  });
+
+  it("recusa imagem que passa do teto durante a leitura (sem content-length)", async () => {
+    buscarItem.mockResolvedValue(ITEM_COM_FOTO);
+    const pedaco = new Uint8Array(1024 * 1024);
+    let enviados = 0;
+    const corpo = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        enviados += 1;
+        if (enviados > 8) controller.close();
+        else controller.enqueue(pedaco);
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(corpo, { headers: { "content-type": "image/jpeg" } })),
+    );
+    expect((await pedir()).status).toBe(502);
   });
 });

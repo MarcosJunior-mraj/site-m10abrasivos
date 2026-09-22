@@ -9,6 +9,9 @@ const esquemaServidor = z.object({
   EMPRESA_RAZAO_SOCIAL: z.string().min(1),
   EMPRESA_CNPJ: z.string().min(1),
   EMPRESA_EMAIL_ENCARREGADO: z.email(),
+  // Opcional: hosts (só o nome, separados por vírgula) além do Bling de onde a
+  // rota de imagem pode buscar foto — ver lib/catalog/origem-de-imagem.ts.
+  IMAGENS_HOSTS_EXTRAS: z.string().optional(),
 });
 
 export type ConfigServidor = {
@@ -16,6 +19,7 @@ export type ConfigServidor = {
   catalogKey: string;
   revalidateSecret: string;
   siteUrl: string;
+  imagensHostsExtras: string[];
   empresa: { razaoSocial: string; cnpj: string; emailEncarregado: string };
 };
 
@@ -42,6 +46,10 @@ export function lerConfigServidor(
     catalogKey: dados.CATALOG_KEY,
     revalidateSecret: dados.SITE_REVALIDATE_SECRET,
     siteUrl: semBarraFinal(dados.SITE_URL),
+    imagensHostsExtras: (dados.IMAGENS_HOSTS_EXTRAS ?? "")
+      .split(",")
+      .map((host) => host.trim().toLowerCase())
+      .filter((host) => host.length > 0),
     empresa: {
       razaoSocial: dados.EMPRESA_RAZAO_SOCIAL,
       cnpj: dados.EMPRESA_CNPJ,

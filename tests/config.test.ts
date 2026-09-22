@@ -35,4 +35,14 @@ describe("lerConfigServidor", () => {
       /SITE_REVALIDATE_SECRET/,
     );
   });
+
+  it("hosts extras de imagem são opcionais e viram lista limpa", () => {
+    expect(lerConfigServidor(COMPLETO).imagensHostsExtras).toEqual([]);
+    expect(
+      lerConfigServidor({
+        ...COMPLETO,
+        IMAGENS_HOSTS_EXTRAS: " Fotos.M10.com.br , ,cdn.m10.com.br",
+      }).imagensHostsExtras,
+    ).toEqual(["fotos.m10.com.br", "cdn.m10.com.br"]);
+  });
 });

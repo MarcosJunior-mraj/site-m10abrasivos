@@ -106,6 +106,23 @@ describe("cliente do catálogo", () => {
     ).rejects.toThrow(/formato/);
   });
 
+  it("descarta da lista de fotos o que não é URL http(s) válida, sem derrubar o item", async () => {
+    const comLixo = {
+      ...ITEM,
+      images: [
+        "javascript:alert(1)",
+        "não é url",
+        "data:image/svg+xml,<svg/>",
+        "https://orgbling.s3.amazonaws.com/foto?Signature=abc",
+      ],
+    };
+    const itens = await buscarItens(
+      {},
+      { env: ENV, fetchImpl: fetchFalso(respostaFalsa({ data: [comLixo] })) },
+    );
+    expect(itens[0]?.images).toEqual(["https://orgbling.s3.amazonaws.com/foto?Signature=abc"]);
+  });
+
   it("busca categorias", async () => {
     const categorias = await buscarCategorias({
       env: ENV,
