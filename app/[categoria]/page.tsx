@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
 import { Cabecalho } from "@/components/layout/cabecalho";
+import { textoDeSeo } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
 import { ehSlugReservado } from "@/lib/rotas";
 
@@ -34,7 +35,7 @@ export async function generateMetadata({
   return {
     title: dados.categoria.name,
     description:
-      dados.categoria.description ??
+      textoDeSeo(dados.categoria.description) ??
       `${dados.categoria.name} da M10 Abrasivos para marmorarias. Fale com um especialista.`,
     alternates: { canonical: `/${dados.categoria.slug}` },
   };
@@ -49,6 +50,8 @@ export default async function PaginaDeCategoria({
   const dados = await carregar(categoria);
   if (!dados) notFound();
 
+  // Texto livre do CRM: mesma trava de preço da descrição do item.
+  const descricao = textoDeSeo(dados.categoria.description);
   const comItens = dados.categorias.filter((c) =>
     dados.todos.some((item) => item.category?.slug === c.slug),
   );
@@ -59,9 +62,7 @@ export default async function PaginaDeCategoria({
       <main>
         <header className="mx-auto max-w-6xl px-4 pt-12">
           <h1 className="text-3xl">{dados.categoria.name}</h1>
-          {dados.categoria.description ? (
-            <p className="mt-3 max-w-prose text-texto-secundario">{dados.categoria.description}</p>
-          ) : null}
+          {descricao ? <p className="mt-3 max-w-prose text-texto-secundario">{descricao}</p> : null}
         </header>
         <GradeDeItens itens={dados.itens} />
       </main>

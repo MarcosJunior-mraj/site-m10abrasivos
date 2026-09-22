@@ -2,7 +2,14 @@ import { expect, test } from "@playwright/test";
 
 const PADROES_DE_PRECO = [/R\$/, /\d+,\d{2}/, /\bpre[çc]o\b/i, /a partir de/i];
 
-for (const caminho of ["/", "/abrasivos-para-poliborda", "/produto/gt-50", "/produto/kit-gt"]) {
+for (const caminho of [
+  "/",
+  "/abrasivos-para-poliborda",
+  "/produto/gt-50",
+  "/produto/kit-gt",
+  // Item cujo texto livre no CRM FALSO traz "R$ 10,00" (spec) e "R$ 99,90" (descrição).
+  "/produto/gt-120",
+]) {
   test(`nenhum preço em ${caminho}`, async ({ page }) => {
     const resposta = await page.goto(caminho);
     expect(resposta?.status()).toBe(200);
@@ -24,6 +31,13 @@ test("a página de produto mostra a ficha e não expõe a URL assinada", async (
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Green Turbo");
   await expect(page.getByText("Folha de especificação")).toBeVisible();
   expect(await page.content()).not.toContain("Signature=");
+});
+
+test("o filtro de preço tira só o par/frase com preço, não a ficha inteira", async ({ page }) => {
+  await page.goto("/produto/gt-120");
+  await expect(page.getByText("Abrasivo para polimento intermediário.").first()).toBeVisible();
+  await expect(page.getByText("M14")).toBeVisible();
+  await expect(page.getByText("R$ 10,00")).toHaveCount(0);
 });
 
 test("o filtro reduz a lista e fica na URL", async ({ page }) => {

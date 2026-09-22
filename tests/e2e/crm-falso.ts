@@ -49,6 +49,13 @@ const ITENS = [
   item("gt-50", "Green Turbo #50", "50", ["granito"], ["desbaste"]),
   item("gt-400", "Green Turbo #400", "400", ["marmore"], ["polimento"]),
   item("kit-gt", "Kit GT para poliborda", null, [], [], "kit"),
+  // Texto livre do CRM com preço digitado por engano: a varredura e2e de
+  // preço prova que a trava do site (lib/catalog/sem-preco.ts) segura isso.
+  {
+    ...item("gt-120", "Green Turbo #120", "120", ["granito"], ["polimento"]),
+    description: "Abrasivo para polimento intermediário. Promoção: R$ 99,90 a unidade.",
+    specs: { Preço: "R$ 10,00", Rosca: "M14" },
+  },
 ];
 
 const CATEGORIAS = [

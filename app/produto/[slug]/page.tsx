@@ -6,7 +6,7 @@ import { CartaoItem } from "@/components/catalogo/cartao-item";
 import { ComposicaoDoKit } from "@/components/catalogo/composicao-do-kit";
 import { FolhaDeEspecificacao } from "@/components/catalogo/folha-de-especificacao";
 import { Cabecalho } from "@/components/layout/cabecalho";
-import { descricaoDoItem } from "@/lib/catalog/apresentacao";
+import { descricaoDoItem, textoDeSeo } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItem, buscarItens } from "@/lib/catalog/client";
 import { temImagem, urlDaImagem } from "@/lib/catalog/imagens";
 import { lerConfigServidor } from "@/lib/config";
@@ -27,13 +27,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const item = await buscarItem(slug);
   if (!item) return {};
+  // Campos de SEO são texto livre do CRM: passam pela mesma trava de preço.
+  const titulo = textoDeSeo(item.seoTitle) ?? item.title;
+  const descricao = textoDeSeo(item.seoDescription) ?? descricaoDoItem(item);
   return {
-    title: item.seoTitle ?? item.title,
-    description: item.seoDescription ?? descricaoDoItem(item),
+    title: titulo,
+    description: descricao,
     alternates: { canonical: `/produto/${item.slug}` },
     openGraph: {
-      title: item.seoTitle ?? item.title,
-      description: item.seoDescription ?? descricaoDoItem(item),
+      title: titulo,
+      description: descricao,
       images: temImagem(item) ? [urlDaImagem(item.slug, 0)] : [],
     },
   };

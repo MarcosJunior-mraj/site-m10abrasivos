@@ -1,4 +1,5 @@
 import type { ItemCatalogo } from "./schemas";
+import { textoSemPreco } from "./sem-preco";
 
 /**
  * O CRM guarda os valores sem acento (vêm de listas fixas da tela de catálogo).
@@ -70,9 +71,19 @@ function frasePelaFicha(item: ItemCatalogo): string {
   return `${frase}.`;
 }
 
+/**
+ * Descrição exibida (página, cartão, meta description e JSON-LD): a do CRM
+ * sem as frases que falam de preço; se não sobrar nada, a frase da ficha.
+ */
 export function descricaoDoItem(item: ItemCatalogo): string {
-  const doCrm = item.description?.trim();
+  const doCrm = textoSemPreco(item.description?.trim() ?? "");
   return doCrm ? doCrm : frasePelaFicha(item);
+}
+
+/** Campo de SEO vindo do CRM, sem frase de preço; vazio vira `null` (o chamador usa o padrão). */
+export function textoDeSeo(texto: string | null): string | null {
+  const limpo = textoSemPreco(texto?.trim() ?? "");
+  return limpo ? limpo : null;
 }
 
 function granaNumerica(item: ItemCatalogo): number {

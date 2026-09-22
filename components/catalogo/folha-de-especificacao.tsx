@@ -1,5 +1,6 @@
 import { comInicialMaiuscula, rotuloDeAplicacao, rotuloDePedra } from "@/lib/catalog/apresentacao";
 import type { ItemCatalogo } from "@/lib/catalog/schemas";
+import { chaveFalaDePreco, textoFalaDePreco } from "@/lib/catalog/sem-preco";
 
 type Linha = { rotulo: string; valor: string };
 
@@ -21,9 +22,12 @@ function linhas(item: ItemCatalogo): Linha[] {
   }
   if (item.machines.length > 0) lista.push({ rotulo: "Máquinas", valor: item.machines.join(", ") });
   for (const [chave, valor] of Object.entries(item.specs)) {
-    if (typeof valor === "string" || typeof valor === "number") {
-      lista.push({ rotulo: chave, valor: String(valor) });
-    }
+    if (typeof valor !== "string" && typeof valor !== "number") continue;
+    const texto = String(valor);
+    // Spec é chave/valor livre digitado no CRM: par que fala de preço não
+    // vai para a tela (ver lib/catalog/sem-preco.ts).
+    if (chaveFalaDePreco(chave) || textoFalaDePreco(texto)) continue;
+    lista.push({ rotulo: chave, valor: texto });
   }
   return lista;
 }
