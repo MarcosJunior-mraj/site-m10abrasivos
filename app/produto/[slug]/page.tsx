@@ -5,6 +5,7 @@ import { BotaoFalarComEspecialista } from "@/components/catalogo/botao-falar-com
 import { CartaoItem } from "@/components/catalogo/cartao-item";
 import { ComposicaoDoKit } from "@/components/catalogo/composicao-do-kit";
 import { FolhaDeEspecificacao } from "@/components/catalogo/folha-de-especificacao";
+import { TrilhaDoItem } from "@/components/catalogo/trilha-do-item";
 import { Cabecalho } from "@/components/layout/cabecalho";
 import { descricaoDoItem, textoDeSeo } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItem, buscarItens } from "@/lib/catalog/client";
@@ -90,9 +91,7 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
 
           <div className="flex flex-col gap-6">
             <div>
-              <p className="font-mono text-xs uppercase tracking-wider text-laranja">
-                {item.category?.name ?? "Catálogo"}
-              </p>
+              <TrilhaDoItem categoria={item.category} titulo={item.title} />
               <h1 className="mt-2 text-3xl leading-tight">{item.title}</h1>
             </div>
             <p className="text-texto-secundario">{descricaoDoItem(item)}</p>
