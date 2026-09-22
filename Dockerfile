@@ -1,0 +1,42 @@
+FROM node:24-alpine AS base
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+# O build lê o catálogo do CRM: estas variáveis precisam existir aqui, e as
+# NEXT_PUBLIC_* ficam gravadas no pacote do navegador.
+ARG CRM_URL
+ARG CATALOG_KEY
+ARG SITE_REVALIDATE_SECRET
+ARG SITE_URL
+ARG EMPRESA_RAZAO_SOCIAL
+ARG EMPRESA_CNPJ
+ARG EMPRESA_EMAIL_ENCARREGADO
+ARG NEXT_PUBLIC_CRM_URL
+ARG NEXT_PUBLIC_WEBCHAT_KEY
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ARG NEXT_PUBLIC_WHATSAPP_FALLBACK
+ENV CRM_URL=$CRM_URL CATALOG_KEY=$CATALOG_KEY SITE_REVALIDATE_SECRET=$SITE_REVALIDATE_SECRET \
+    SITE_URL=$SITE_URL EMPRESA_RAZAO_SOCIAL=$EMPRESA_RAZAO_SOCIAL EMPRESA_CNPJ=$EMPRESA_CNPJ \
+    EMPRESA_EMAIL_ENCARREGADO=$EMPRESA_EMAIL_ENCARREGADO NEXT_PUBLIC_CRM_URL=$NEXT_PUBLIC_CRM_URL \
+    NEXT_PUBLIC_WEBCHAT_KEY=$NEXT_PUBLIC_WEBCHAT_KEY \
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
+    NEXT_PUBLIC_WHATSAPP_FALLBACK=$NEXT_PUBLIC_WHATSAPP_FALLBACK
+RUN npm run build
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+COPY --from=build /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]

@@ -1,0 +1,167 @@
+# CLAUDE.md — m10-site
+
+## O que este site é
+
+Vitrine da M10 Abrasivos para marmorarias: catálogo de produtos (com foto,
+ficha técnica, kits) e um widget de chat que conecta o visitante ao CRM da
+empresa, onde um agente de IA (ou um vendedor humano) atende. Next.js 16, App
+Router, `output: "standalone"`. Etapa 4a da spec (site + widget); o agente
+vendedor em si é a Etapa 3, implementada no repositório do CRM.
+
+## O que este site NÃO faz
+
+- **Não mostra preço.** Nenhuma tela, nenhuma rota da API pública do CRM que
+  este site consome devolve preço ou estoque — é filtro do lado do CRM
+  (`public-queries.ts` lá), reforçado aqui por nunca pedir esses campos.
+- **Não tem banco de dados próprio.** Todo o catálogo vem do CRM a cada
+  build/revalidação; não há Postgres, Supabase nem qualquer armazenamento
+  próprio neste repositório.
+- **Não tem login nem conta de usuário.** Não existe área logada, sessão de
+  cliente ou painel — é site público, só leitura, mais o chat anônimo.
+- **Não usa preço nem catálogo com dados sensíveis no HTML.** As URLs de foto
+  que o Bling devolve são links assinados do S3 com validade curta; elas não
+  aparecem em lugar nenhum do HTML servido (ver seção seguinte).
+
+## Como o catálogo entra
+
+- `lib/catalog/client.ts` é o cliente HTTP para
+  `${CRM_URL}/api/public/catalog/*` (`buscarItens`, `buscarItem`,
+  `buscarCategorias`), autenticado com o cabeçalho `x-catalog-key:
+  ${CATALOG_KEY}`. Toda leitura usa `fetch` com `next: { tags: ["catalog"] }`
+  — a mesma tag que `POST /api/revalidate` (`app/api/revalidate/route.ts`)
+  derruba via `revalidateTag("catalog", "max")` quando o CRM avisa que algo
+  mudou (`Authorization: Bearer ${SITE_REVALIDATE_SECRET}`).
+- **Por que existe a rota `/imagens/[slug]/[indice]`
+  (`app/imagens/[slug]/[indice]/route.ts`)**: as fotos que o CRM devolve são
+  URLs assinadas do S3/Bling com validade de ~24 h. Se essas URLs fossem
+  parar direto no HTML (ex.: `<img src={item.images[0]}>`), a página estática
+  (`revalidate: 3600`) ficaria com foto quebrada assim que a assinatura
+  expirasse, bem antes da próxima revalidação. Em vez disso, o site expõe uma
+  URL **estável e própria** (`/imagens/{slug}/{indice}`) que, a cada
+  requisição, busca o item de novo, pega a URL assinada corrente e faz proxy
+  do binário (`cache-control: public, max-age=86400,
+  stale-while-revalidate=604800` — a resposta ESTÁVEL é cacheada, não a URL
+  volátil de origem). `revalidateTag("catalog")` também derruba essa rota,
+  então foto trocada no Bling aparece na revalidação seguinte.
+
+## Como o widget fala com o CRM
+
+- `lib/webchat/cliente.ts` (`ClienteWebchat`) fala **direto do navegador**
+  com `${NEXT_PUBLIC_CRM_URL}/api/public/webchat/{session,messages,stream}`,
+  autenticado com `NEXT_PUBLIC_WEBCHAT_KEY` (chave pública, não é segredo —
+  identifica o canal, igual à `x-catalog-key` do catálogo) e depois com o
+  token de sessão HMAC que o CRM devolve.
+- **Por que direto do navegador, e não via rota própria do site como
+  proxy**: o CRM aplica limite por IP nas rotas públicas do webchat (20
+  requisições/min e 200/dia por sessão E por IP — ver
+  `lib/webchat/CLAUDE.md` no CRM). Se o site fizesse de intermediário
+  (navegador → API do site → CRM), todo tráfego chegaria ao CRM com o **IP
+  do servidor do site**, não o do visitante — o limite por IP deixaria de
+  discriminar visitantes e um único abusador (ou um pico de tráfego legítimo)
+  esgotaria a cota de todo mundo que usa o chat ao mesmo tempo. Falando
+  direto, o `TRUST_PROXY=1` do CRM enxerga o IP real de cada visitante.
+- Streaming de mensagens novas é por SSE (`EventSource`,
+  `GET .../stream?token=...`), com reconexão limitada (piso de 15 s entre
+  tentativas, teto de 5 tentativas seguidas antes de cair para o link de
+  WhatsApp — ver `RECONEXAO_INTERVALO_MINIMO_MS` /
+  `RECONEXAO_TENTATIVAS_MAXIMAS` em `lib/webchat/cliente.ts`).
+- Sem sessão, IP bloqueado ou CRM fora do ar, o widget degrada para um botão
+  de link direto ao WhatsApp (`NEXT_PUBLIC_WHATSAPP_FALLBACK`) — nunca trava
+  numa tela sem saída.
+
+## Contratos do CRM (resumo — a fonte completa é lá)
+
+Este repositório só consome; a implementação, as regras de limite, o modelo
+de dados e as decisões de segurança vivem no repositório do CRM:
+
+- **Catálogo**: `lib/catalog/CLAUDE.md` no CRM — modelo (`catalog_items`,
+  `product_categories`, `kits`), colunas liberadas para a API pública (sem
+  preço/estoque, coberto por teste lá), e como a escrita no CRM aciona
+  `notifySiteCatalogChanged` → `POST ${SITE_URL}/api/revalidate`.
+- **Webchat**: `lib/webchat/CLAUDE.md` no CRM — autenticação por chave/token,
+  todos os limites de abuso (por sessão, por IP, por canal, por conexão
+  SSE), por que o SSE consulta o banco em vez do Supabase Realtime, e por
+  que `TRUST_PROXY=1` é obrigatório em produção.
+
+Antes de mudar qualquer coisa que toque nesses contratos (formato de
+resposta, cabeçalhos, limites), leia o `CLAUDE.md` correspondente no CRM
+primeiro — mudar um lado sem o outro quebra em produção sem aviso em build.
+
+## Variáveis de ambiente
+
+Servidor (nunca viram `NEXT_PUBLIC_*`, nunca em arquivo versionado com valor
+real — só `.env.example` com placeholder):
+
+| Variável | Uso |
+|---|---|
+| `CRM_URL` | Base da API do CRM, lida só no servidor |
+| `CATALOG_KEY` | Enviada em `x-catalog-key` ao ler o catálogo |
+| `SITE_REVALIDATE_SECRET` | Comparado com o `Authorization: Bearer` de `POST /api/revalidate` |
+| `SITE_URL` | URL pública do site (metadata, sitemap, dados estruturados) |
+| `EMPRESA_RAZAO_SOCIAL` | Exibida em `/privacidade` |
+| `EMPRESA_CNPJ` | Exibida em `/privacidade` |
+| `EMPRESA_EMAIL_ENCARREGADO` | E-mail do encarregado LGPD, exibido em `/privacidade` |
+
+Navegador (gravadas no pacote do navegador **durante o build** — por isso
+precisam existir como `ARG` no `Dockerfile` e como variável no momento de
+`npm run build`, não só em runtime):
+
+| Variável | Uso |
+|---|---|
+| `NEXT_PUBLIC_CRM_URL` | URL do CRM usada pelo navegador para falar com o webchat |
+| `NEXT_PUBLIC_WEBCHAT_KEY` | Chave pública do webchat (`x-webchat-key`) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Site key do Cloudflare Turnstile |
+| `NEXT_PUBLIC_WHATSAPP_FALLBACK` | Número (só dígitos) do botão de contingência do chat |
+
+Ver `.env.example` para os comentários de cada uma.
+
+## Comandos
+
+- `npm run dev` — servidor de desenvolvimento, porta 3001
+- `npm run build` / `npm run start` — build e start de produção (`start`
+  emite um aviso inofensivo por causa de `output: "standalone"`; em produção
+  real o contêiner roda `node server.js`, não `next start`)
+- `npm run check` — `biome check --write .`
+- `npm run types` — `tsc --noEmit`
+- `npm test` — `vitest run` (testes de unidade)
+- `npm run test:e2e` — `playwright test` (ponta a ponta, contra
+  `tests/e2e/crm-falso.ts`, um CRM falso que sobe na porta 3101)
+
+## Lições desta etapa (poupam tempo de quem vier depois)
+
+- **Caminho do disco com maiúsculas exatas.** O caminho real deste worktree
+  no Windows é `C:\Users\Marcos Junior\IAS\Site\...` (maiúsculo em `IAS` e
+  `Site`). Rodar comandos a partir de um `cd` com capitalização diferente
+  (ex.: `...\ias\site\...`) faz o `vite-tsconfig-paths` — usado pelo Vitest
+  para resolver o alias `@/*` — comparar caminhos de forma sensível a
+  maiúsculas/minúsculas contra a raiz "errada" do projeto, e o alias para de
+  bater. O sintoma é enganoso: `Cannot find module '@/lib/config'` mesmo com
+  o arquivo existindo e a configuração correta. Não é bug de código nem de
+  `tsconfig.json`/`vitest.config.ts` — é só entrar sempre pelo caminho com a
+  capitalização real.
+- **Nunca criar `declare module` para calar o compilador.** Um `.d.ts` com
+  `declare module "next/cache"` (por exemplo) substitui a tipagem inteira do
+  módulo, não só a assinatura que mudou — esconde uma mudança de API real do
+  Next e quebra silenciosamente outros imports do mesmo módulo. Se o
+  TypeScript reclama de uma API que mudou de verdade, corrija a chamada; não
+  finja que o tipo é outro.
+- **`useSearchParams()` numa página estática tira o conteúdo do HTML.**
+  Envolver o componente num `<Suspense>` faz o `next build` passar, mas o
+  que fica no `.next/server/.../*.html` pré-renderizado é o **fallback** do
+  `Suspense`, não o conteúdo real — a grade de itens em `/[categoria]`
+  desapareceu do HTML servido, mesmo passando no build. A saída certa é não
+  usar `useSearchParams()` em componente que precisa aparecer no HTML
+  estático: ler o estado inicial como vazio (igual ao servidor) e, só depois
+  da montagem, ler `window.location.search`/escutar `popstate` num
+  `useEffect` comum, que não é hook do Next e não provoca bail-out.
+- **`fetch` guardado em campo precisa de `bind`.** `this.fetchImpl = deps.fetchImpl ?? fetch`
+  guarda a função sem o `this` correto; ao chamar `this.fetchImpl(...)`, o
+  `this` da chamada é a instância da classe, não `window`. O `fetch` nativo
+  do navegador exige que o `this` seja a própria `Window`, senão lança
+  `Illegal invocation` — silenciosamente, sem nenhuma requisição aparecendo
+  no DevTools, então o sintoma parece "a rede não está sendo usada", não
+  "deu erro". Correção: `fetch.bind(globalThis)` no valor padrão. Testes de
+  unidade que sempre injetam seu próprio `fetchImpl` não pegam essa
+  regressão — se for escrever um teste de guarda, ele precisa exercitar o
+  `fetch` padrão (sem injeção) e checar o `this` recebido, não só "não
+  lançou".
