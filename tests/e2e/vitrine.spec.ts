@@ -23,6 +23,11 @@ for (const caminho of [
     for (const padrao of PADROES_DE_PRECO) {
       expect(html, `${caminho} não pode conter ${padrao}`).not.toMatch(padrao);
     }
+    // Nem a URL de origem da foto (no CRM de verdade, link ASSINADO do Bling):
+    // inclusive no payload RSC que vai junto no HTML para componentes de cliente.
+    expect(html, `${caminho} não pode conter a URL de origem da foto`).not.toContain(
+      "localhost:3101/foto.jpg",
+    );
   });
 }
 

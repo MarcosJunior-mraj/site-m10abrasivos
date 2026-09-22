@@ -4,6 +4,7 @@ import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
 import { Cabecalho } from "@/components/layout/cabecalho";
 import { textoDeSeo } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
+import { itemParaONavegador } from "@/lib/catalog/para-o-navegador";
 import { ehSlugReservado } from "@/lib/rotas";
 
 export const dynamicParams = true;
@@ -64,7 +65,8 @@ export default async function PaginaDeCategoria({
           <h1 className="text-3xl">{dados.categoria.name}</h1>
           {descricao ? <p className="mt-3 max-w-prose text-texto-secundario">{descricao}</p> : null}
         </header>
-        <GradeDeItens itens={dados.itens} />
+        {/* `GradeDeItens` é de cliente: tudo que vai nas props sai no HTML (payload RSC). */}
+        <GradeDeItens itens={dados.itens.map(itemParaONavegador)} />
       </main>
     </>
   );
