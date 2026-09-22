@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
 import { Cabecalho } from "@/components/layout/cabecalho";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
@@ -64,15 +63,7 @@ export default async function PaginaDeCategoria({
             <p className="mt-3 max-w-prose text-texto-secundario">{dados.categoria.description}</p>
           ) : null}
         </header>
-        {/*
-          `GradeDeItens` lê `useSearchParams()` para os filtros: sem o limite
-          do `Suspense`, o Next recusa pré-renderizar a rota estaticamente
-          (bail-out de CSR). A grade calcula tudo de forma síncrona a partir
-          de `itens`, então o fallback nunca chega a aparecer de verdade.
-        */}
-        <Suspense fallback={null}>
-          <GradeDeItens itens={dados.itens} />
-        </Suspense>
+        <GradeDeItens itens={dados.itens} />
       </main>
     </>
   );

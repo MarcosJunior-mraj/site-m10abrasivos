@@ -16,8 +16,8 @@ test("/sitemap.xml com o CRM fora do ar", async ({ request }) => {
     description: `status=${resposta.status()} tamanho-do-corpo=${corpo.length}`,
   });
 
-  // Não corrigimos nada aqui — só documentamos o comportamento real no
-  // relatório da Tarefa 13. A única garantia que exigimos é que a rota
-  // responda alguma coisa (não trave o processo do site).
-  expect(resposta.status()).toBeGreaterThan(0);
+  // Comportamento desejado e protegido aqui: a rota serve a versão gerada no
+  // build, alheia ao CRM estar no ar ou não, até a próxima revalidação.
+  expect(resposta.status()).toBe(200);
+  expect(corpo).toContain("/produto/gt-50");
 });

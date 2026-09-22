@@ -1,17 +1,23 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const replace = vi.fn();
-const useSearchParamsMock = vi.fn(() => new URLSearchParams(""));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace }),
   usePathname: () => "/abrasivos-para-poliborda",
-  useSearchParams: () => useSearchParamsMock(),
 }));
 
 import { GradeDeItens } from "@/components/catalogo/grade-de-itens";
 import type { ItemCatalogo } from "@/lib/catalog/schemas";
+
+/** Muda a URL sem navegar de verdade — o mesmo que voltar/avançar do navegador faz. */
+function irParaUrl(caminhoComQuery: string) {
+  window.history.pushState({}, "", caminhoComQuery);
+  act(() => {
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
 
 function item(parcial: Partial<ItemCatalogo>): ItemCatalogo {
   return {
@@ -50,8 +56,13 @@ const ITENS = [
 describe("GradeDeItens", () => {
   beforeEach(() => {
     replace.mockReset();
-    useSearchParamsMock.mockReset();
-    useSearchParamsMock.mockReturnValue(new URLSearchParams(""));
+    // Volta a URL para o estado "sem filtro" antes de cada teste — o jsdom
+    // mantém `window.location` entre os testes do arquivo.
+    window.history.pushState({}, "", "/abrasivos-para-poliborda");
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, "", "/abrasivos-para-poliborda");
   });
 
   it("mostra todos os itens e a contagem", () => {
@@ -91,24 +102,29 @@ describe("GradeDeItens", () => {
     expect(screen.queryByRole("button", { name: /Mármore/i })).toBeNull();
   });
 
-  it("abre já filtrada quando a URL já traz um filtro", () => {
-    useSearchParamsMock.mockReturnValue(new URLSearchParams("pedra=marmore"));
+  it("abre com tudo (sem filtro) na primeira pintura e filtra assim que monta, lendo a URL", async () => {
+    irParaUrl("/abrasivos-para-poliborda?pedra=marmore");
     render(<GradeDeItens itens={ITENS} />);
 
-    expect(screen.queryByRole("link", { name: /Green Turbo #50/ })).toBeNull();
+    // A grade some o item sem a pedra assim que o efeito de montagem lê
+    // `window.location.search` — é o comportamento que faz o servidor poder
+    // mandar TODOS os itens no HTML (sem bail-out de `useSearchParams`) e o
+    // cliente ainda assim abrir já filtrado.
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /Green Turbo #50/ })).toBeNull();
+    });
     expect(screen.getByRole("link", { name: /Green Turbo #400/ })).toBeDefined();
     expect(screen.getByRole("button", { name: /Mármore/i }).getAttribute("aria-pressed")).toBe(
       "true",
     );
   });
 
-  it("ressincroniza a seleção quando os parâmetros da URL mudam por fora do componente", async () => {
-    const { rerender } = render(<GradeDeItens itens={ITENS} />);
+  it("ressincroniza a seleção quando a URL muda por fora do componente (voltar/avançar)", async () => {
+    render(<GradeDeItens itens={ITENS} />);
 
     expect(screen.getByRole("link", { name: /Green Turbo #50/ })).toBeDefined();
 
-    useSearchParamsMock.mockReturnValue(new URLSearchParams("pedra=marmore"));
-    rerender(<GradeDeItens itens={ITENS} />);
+    irParaUrl("/abrasivos-para-poliborda?pedra=marmore");
 
     await waitFor(() => {
       expect(screen.queryByRole("link", { name: /Green Turbo #50/ })).toBeNull();
@@ -117,5 +133,11 @@ describe("GradeDeItens", () => {
     expect(screen.getByRole("button", { name: /Mármore/i }).getAttribute("aria-pressed")).toBe(
       "true",
     );
+  });
+
+  it("anuncia o resultado numa região viva (status)", () => {
+    render(<GradeDeItens itens={ITENS} />);
+    const regiao = screen.getByRole("status");
+    expect(regiao.textContent).toMatch(/2 itens/i);
   });
 });

@@ -142,6 +142,41 @@ describe("abertura de sessão", () => {
     expect(cliente.estado.fase).toBe("degradado");
   });
 
+  it("sem `fetchImpl` injetado, chama o `fetch` padrão com `this` igual a `globalThis`", async () => {
+    // Regressão do bug real de produção (Tarefa 13): todo uso do cliente
+    // chama `this.fetchImpl(...)`, ou seja, invoca a função com `this`
+    // apontando para a instância de `ClienteWebchat` — e o `fetch` nativo de
+    // um navegador de verdade rejeita isso com "Illegal invocation" (exige
+    // que o `this` da chamada seja a própria `Window`). `.bind(globalThis)`
+    // no construtor é o que evita isso.
+    //
+    // O ambiente de teste (Node/jsdom) não reproduz o "Illegal invocation"
+    // em si — o `fetch` nativo do Node não faz essa checagem de receptor —
+    // então a asserção que de fato pega a regressão é o valor de `this`
+    // dentro da implementação espionada, não a ausência de um erro lançado.
+    let contextoRecebido: unknown;
+    const espiao = vi.spyOn(globalThis, "fetch").mockImplementation(function (this: unknown) {
+      contextoRecebido = this;
+      return Promise.resolve(json(SESSAO_OK));
+    });
+
+    const cliente = new ClienteWebchat({
+      crmUrl: CRM,
+      chave: CHAVE,
+      numeroFallback: NUMERO,
+      armazenamento: memoria(),
+      criarFonte: () => new FonteFalsa(),
+    });
+
+    await cliente.abrir();
+
+    expect(espiao).toHaveBeenCalled();
+    expect(contextoRecebido).toBe(globalThis);
+    expect(cliente.estado.fase).toBe("pronto");
+
+    espiao.mockRestore();
+  });
+
   it("CRM fora do ar: modo degradado com o número de reserva", async () => {
     const quebrado = vi.fn(async () => {
       throw new Error("falha de rede");

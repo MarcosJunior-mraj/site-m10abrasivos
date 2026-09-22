@@ -6,6 +6,12 @@ for (const caminho of ["/", "/abrasivos-para-poliborda", "/produto/gt-50", "/pro
   test(`nenhum preço em ${caminho}`, async ({ page }) => {
     const resposta = await page.goto(caminho);
     expect(resposta?.status()).toBe(200);
+    if (caminho === "/abrasivos-para-poliborda") {
+      // A grade de itens dessa rota filtra no cliente, depois de montar (ver
+      // `GradeDeItens`): ler o conteúdo cedo demais deixaria a varredura
+      // passar mesmo se um preço aparecesse só depois que a grade existe.
+      await expect(page.getByRole("article").first()).toBeVisible();
+    }
     const html = await page.content();
     for (const padrao of PADROES_DE_PRECO) {
       expect(html, `${caminho} não pode conter ${padrao}`).not.toMatch(padrao);

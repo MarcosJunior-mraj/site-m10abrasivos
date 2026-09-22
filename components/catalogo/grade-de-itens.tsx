@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CartaoItem } from "@/components/catalogo/cartao-item";
 import { Filtros } from "@/components/catalogo/filtros";
@@ -17,17 +17,29 @@ import type { ItemCatalogo } from "@/lib/catalog/schemas";
 export function GradeDeItens({ itens }: { itens: ItemCatalogo[] }) {
   const router = useRouter();
   const caminho = usePathname();
-  const parametros = useSearchParams();
-  const [selecao, setSelecao] = useState<SelecaoDeFiltros>(() =>
-    lerSelecaoDaUrl(new URLSearchParams(parametros.toString())),
-  );
+  // De propósito, SEM `useSearchParams()`: esse hook impede o Next de
+  // pré-renderizar a rota de categoria estaticamente (bail-out para
+  // client-side rendering, porque a query string não existe no build) — e
+  // são justamente essas páginas que precisam sair prontas no HTML para
+  // indexação. Por isso a seleção inicial é sempre vazia (bate com o HTML do
+  // servidor, que mostra TODOS os itens sem filtro) e só é lida da URL depois
+  // da montagem, num efeito comum — `window.location` não é hook do Next e
+  // não provoca bail-out nenhum.
+  const [selecao, setSelecao] = useState<SelecaoDeFiltros>({});
 
-  // A URL manda: se a pessoa navega para um link com filtro (voltar, avançar,
-  // link compartilhado), a seleção acompanha em vez de ficar presa ao estado
-  // do primeiro render.
   useEffect(() => {
-    setSelecao(lerSelecaoDaUrl(new URLSearchParams(parametros.toString())));
-  }, [parametros]);
+    function lerDaUrl() {
+      setSelecao(lerSelecaoDaUrl(new URLSearchParams(window.location.search)));
+    }
+    lerDaUrl();
+    // A URL manda: se a pessoa navega para um link com filtro (voltar,
+    // avançar, link compartilhado), a seleção acompanha em vez de ficar presa
+    // ao estado do primeiro render. `popstate` é o evento nativo para isso —
+    // `router.replace` (usado só pelos nossos próprios cliques, abaixo) não o
+    // dispara, então não há laço.
+    window.addEventListener("popstate", lerDaUrl);
+    return () => window.removeEventListener("popstate", lerDaUrl);
+  }, []);
 
   const ordenados = useMemo(() => ordenarPorGrana(itens), [itens]);
   const grupos = useMemo(() => {
