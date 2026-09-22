@@ -211,3 +211,12 @@ Ver `.env.example` para os comentários de cada uma.
   revalidação é de 1 h): mudar o CRM falso e rodar a e2e sem apagar `.next`
   testa o catálogo VELHO. Antes de uma rodada de `npm run test:e2e` que
   dependa de mudança no `tests/e2e/crm-falso.ts`, apague `.next`.
+- **Prop de componente de cliente vai inteira no HTML.** O payload RSC que o
+  Next embute na página leva TODAS as props de um componente `"use client"`,
+  não só o que ele mostra. A página de categoria passava o item cru para
+  `GradeDeItens` e o HTML carregava as URLs assinadas do Bling e a spec
+  "Preço". Antes de passar dado do CRM para componente de cliente, reduza-o
+  (`lib/catalog/para-o-navegador.ts`).
+- **`zod/mini` só encolhe com importação nomeada.** `import { z } from
+  "zod/mini"` levou o pacote inteiro para o chunk do chat (385 KB);
+  `import { object, string, ... } from "zod/mini"` levou 68 KB.
