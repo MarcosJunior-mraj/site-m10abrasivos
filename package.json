@@ -13,7 +13,8 @@
     "start": "next start",
     "check": "biome check --write .",
     "types": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "preparar-logos": "node scripts/preparar-logos.mjs"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "jsdom": "^30.1.0",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
