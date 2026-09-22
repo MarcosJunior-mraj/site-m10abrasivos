@@ -1,10 +1,14 @@
 import { timingSafeEqual } from "node:crypto";
 import { revalidateTag } from "next/cache";
+import { z } from "zod";
 import { TAG_CATALOGO } from "@/lib/catalog/client";
 import { lerConfigServidor } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Contrato com `notifySiteCatalogChanged` do CRM: `{ "tag": "catalog" }`. */
+const esquemaDoCorpo = z.object({ tag: z.string() });
 
 /** Comparação de tempo constante; tamanhos diferentes já não batem. */
 function confere(recebido: string, esperado: string): boolean {
@@ -21,14 +25,18 @@ export async function POST(requisicao: Request): Promise<Response> {
     return Response.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  let corpo: { tag?: unknown };
+  let bruto: unknown;
   try {
-    corpo = (await requisicao.json()) as { tag?: unknown };
+    bruto = await requisicao.json();
   } catch {
     return Response.json({ error: "Corpo inválido." }, { status: 400 });
   }
 
-  if (corpo.tag !== TAG_CATALOGO) {
+  const corpo = esquemaDoCorpo.safeParse(bruto);
+  if (!corpo.success) {
+    return Response.json({ error: "Corpo inválido." }, { status: 400 });
+  }
+  if (corpo.data.tag !== TAG_CATALOGO) {
     return Response.json({ error: "Tag desconhecida." }, { status: 400 });
   }
 

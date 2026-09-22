@@ -64,4 +64,12 @@ describe("POST /api/revalidate", () => {
     const resposta = await POST(quebrado);
     expect(resposta.status).toBe(400);
   });
+
+  it("recusa JSON válido fora do formato (null, lista, tag não-texto) com 400, sem estourar", async () => {
+    for (const corpo of [null, [], { tag: 123 }, {}]) {
+      const resposta = await POST(pedido(corpo, `Bearer ${SEGREDO}`));
+      expect(resposta.status, JSON.stringify(corpo)).toBe(400);
+    }
+    expect(revalidateTag).not.toHaveBeenCalled();
+  });
 });
