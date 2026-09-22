@@ -1,4 +1,12 @@
+import "server-only";
 import { z } from "zod";
+
+/**
+ * Configuração de SERVIDOR. `server-only` faz o build falhar se algum
+ * componente de cliente importar este arquivo — o esquema carrega os nomes
+ * dos segredos e o Zod inteiro. O que vai ao navegador está em
+ * `lib/config-publica.ts`.
+ */
 
 const esquemaServidor = z.object({
   CRM_URL: z.url(),
@@ -57,15 +65,3 @@ export function lerConfigServidor(
     },
   };
 }
-
-/**
- * Configuração que pode ir ao navegador. Os nomes precisam estar escritos por
- * extenso: o Next só troca `process.env.NEXT_PUBLIC_X` por valor literal quando
- * a expressão aparece assim no código.
- */
-export const CONFIG_PUBLICA = {
-  crmUrl: (process.env.NEXT_PUBLIC_CRM_URL ?? "").replace(/\/+$/, ""),
-  webchatKey: process.env.NEXT_PUBLIC_WEBCHAT_KEY ?? "",
-  turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
-  whatsappFallback: (process.env.NEXT_PUBLIC_WHATSAPP_FALLBACK ?? "").replace(/\D/g, ""),
-} as const;

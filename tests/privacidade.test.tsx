@@ -12,12 +12,6 @@ vi.mock("@/lib/config", () => ({
       emailEncarregado: "p@m10.com",
     },
   }),
-  CONFIG_PUBLICA: {
-    crmUrl: "",
-    webchatKey: "",
-    turnstileSiteKey: "",
-    whatsappFallback: "5511999999999",
-  },
 }));
 
 import { render } from "@testing-library/react";

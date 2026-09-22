@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CONFIG_PUBLICA } from "@/lib/config";
+import { CONFIG_PUBLICA } from "@/lib/config-publica";
 
 export function Rodape() {
   const whatsapp = `https://wa.me/${CONFIG_PUBLICA.whatsappFallback}`;

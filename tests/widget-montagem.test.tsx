@@ -28,7 +28,9 @@ describe("Widget — montagem", () => {
     render(<Widget />);
 
     await usuario.click(screen.getByTestId("botao-chat"));
-    await screen.findByRole("dialog", { name: /conversa com o especialista/i });
+    // O painel de verdade (com o campo) — a casca provisória aparece antes,
+    // enquanto o código do chat ainda carrega.
+    await screen.findByRole("textbox", { name: /mensagem/i });
 
     const instancia = ClienteWebchatFalso.instancias.at(-1);
     expect(instancia).toBeDefined();
@@ -78,11 +80,8 @@ describe("Widget — montagem", () => {
     expect(screen.getByRole("link", { name: /continuar no whatsapp/i })).toBeDefined();
   });
 
-  it("StrictMode remonta o efeito de reconexão automática sem reaproveitar o cliente morto", async () => {
-    // Visitante que já tem sessão salva: o efeito de "religar sozinho" cria o
-    // cliente já na montagem, que é exatamente o caso que o StrictMode duplica.
+  it("StrictMode remonta o chat sem reaproveitar o cliente morto", async () => {
     localStorage.setItem(CHAVE_LGPD, "1");
-    localStorage.setItem("webchat_token_", "token-existente");
     const usuario = userEvent.setup();
 
     render(
@@ -91,11 +90,35 @@ describe("Widget — montagem", () => {
       </StrictMode>,
     );
 
-    // Se o cliente morto da primeira montagem fosse reaproveitado sem
-    // reassinar `aoMudar`, o painel nunca chegaria a aparecer aqui.
     await usuario.click(screen.getByTestId("botao-chat"));
-    await screen.findByRole("dialog", { name: /conversa com o especialista/i });
+    await screen.findByRole("textbox", { name: /mensagem/i });
 
-    expect(ClienteWebchatFalso.instancias.length).toBeGreaterThanOrEqual(2);
+    // Se o cliente morto da primeira montagem fosse reaproveitado sem
+    // reassinar `aoMudar`, a bolha emitida pelo cliente vivo nunca apareceria.
+    const vivo = ClienteWebchatFalso.instancias.at(-1);
+    if (!vivo) throw new Error("cliente falso não foi criado");
+    act(() => {
+      vivo.emitir({
+        bolhas: [{ id: "1", de: "cliente", texto: "Olá de novo", situacao: "entregue" }],
+      });
+    });
+    expect(await screen.findByText("Olá de novo")).toBeDefined();
+  });
+
+  it("visitante que volta com sessão salva não abre sessão nem SSE antes de clicar (I2)", async () => {
+    localStorage.setItem(CHAVE_LGPD, "1");
+    localStorage.setItem("webchat_token_", "token-existente");
+    const usuario = userEvent.setup();
+
+    render(<Widget />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(ClienteWebchatFalso.instancias).toHaveLength(0);
+
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await screen.findByRole("textbox", { name: /mensagem/i });
+    expect(ClienteWebchatFalso.instancias.length).toBeGreaterThanOrEqual(1);
   });
 });

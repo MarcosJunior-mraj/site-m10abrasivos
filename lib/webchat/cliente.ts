@@ -5,9 +5,8 @@ import type {
   FonteDeEventos,
   MensagemPublica,
 } from "./tipos";
+import { linkDoWhatsapp } from "./whatsapp";
 
-/** Prefixo que `lib/agent/run.ts`, no CRM, procura para injetar o resumo do site no prompt do WhatsApp. */
-const PREFIXO_DO_SITE = "Oi! Vim do site.";
 const TAMANHO_MAXIMO = 1000;
 /** Piso entre reconexões: o mesmo intervalo que o CRM manda no campo `retry:` do SSE. */
 const RECONEXAO_INTERVALO_MINIMO_MS = 15_000;
@@ -22,10 +21,6 @@ export type DepsDoChat = {
   criarFonte?: (url: string) => FonteDeEventos;
   armazenamento?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
 };
-
-function linkDoWhatsapp(numero: string): string {
-  return `https://wa.me/${numero.replace(/\D/g, "")}?text=${encodeURIComponent(PREFIXO_DO_SITE)}`;
-}
 
 /**
  * Adapta o `EventSource` real para `FonteDeEventos`, sem casting: a assinatura

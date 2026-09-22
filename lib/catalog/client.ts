@@ -1,3 +1,4 @@
+import "server-only";
 import { lerConfigServidor } from "@/lib/config";
 import {
   type CategoriaCatalogo,
