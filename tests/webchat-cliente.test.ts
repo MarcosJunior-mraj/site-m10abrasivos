@@ -22,6 +22,8 @@ function mensagem(parcial: Partial<MensagemPublica>): MensagemPublica {
 class FonteFalsa implements FonteDeEventos {
   ouvintes = new Map<string, (evento: { data: string }) => void>();
   fechada = false;
+  /** Simula o `readyState` real: o teste ajusta antes de disparar `onerror`. */
+  fechadaDefinitivamente = false;
   onerror: ((evento: unknown) => void) | null = null;
 
   addEventListener(tipo: string, ouvinte: (evento: { data: string }) => void): void {
@@ -29,6 +31,9 @@ class FonteFalsa implements FonteDeEventos {
   }
   close(): void {
     this.fechada = true;
+  }
+  estaFechada(): boolean {
+    return this.fechadaDefinitivamente;
   }
   emitir(tipo: string, dados: unknown): void {
     this.ouvintes.get(tipo)?.({ data: JSON.stringify(dados) });
@@ -293,15 +298,33 @@ describe("fluxo de eventos", () => {
     expect(cliente.estado.bolhas.map((b) => b.texto)).toEqual(["Bem-vindo", "Nova"]);
   });
 
-  it("onerror do EventSource cai para o WhatsApp em vez de ficar mudo", async () => {
+  it("onerror com a fonte definitivamente fechada cai para o WhatsApp", async () => {
     const { cliente, fontes } = montar([json(SESSAO_OK)]);
     await cliente.abrir();
     cliente.conectar();
 
-    fontes[0]?.onerror?.(new Event("error"));
+    const fonte = fontes[0];
+    if (fonte) fonte.fechadaDefinitivamente = true;
+    fonte?.onerror?.(new Event("error"));
 
     expect(cliente.estado.fase).toBe("degradado");
     expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+  });
+
+  it("onerror com a fonte ainda tentando reconectar sozinha não muda nada", async () => {
+    const { cliente, fontes } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    cliente.conectar();
+
+    const fonte = fontes[0];
+    // fechadaDefinitivamente permanece false: simula a oscilação passageira
+    // em que o próprio EventSource ainda vai reconectar sozinho.
+    fonte?.onerror?.(new Event("error"));
+
+    expect(cliente.estado.fase).toBe("pronto");
+    expect(cliente.estado.aviso).toBeNull();
+    expect(fonte?.fechada).toBe(false);
+    expect(fontes).toHaveLength(1);
   });
 
   it("mensagem malformada no SSE não derruba o cliente nem some sem rastro", async () => {

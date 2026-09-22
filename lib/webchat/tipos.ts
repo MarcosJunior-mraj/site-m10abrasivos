@@ -35,4 +35,9 @@ export interface FonteDeEventos {
   addEventListener(tipo: string, ouvinte: (evento: { data: string }) => void): void;
   close(): void;
   onerror: ((evento: unknown) => void) | null;
+  /**
+   * Espelha `readyState === EventSource.CLOSED`: diz se a fonte desistiu de
+   * vez, em vez de estar só oscilando e prestes a reconectar sozinha.
+   */
+  estaFechada(): boolean;
 }

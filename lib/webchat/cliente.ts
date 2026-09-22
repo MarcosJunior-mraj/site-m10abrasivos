@@ -44,6 +44,9 @@ function criarFonteViaEventSource(url: string): FonteDeEventos {
     close(): void {
       eventSource.close();
     },
+    estaFechada(): boolean {
+      return eventSource.readyState === EventSource.CLOSED;
+    },
     get onerror(): ((evento: unknown) => void) | null {
       return tratadorDeErro;
     },
@@ -315,6 +318,9 @@ export class ClienteWebchat {
     });
     fonte.addEventListener("reconectar", () => this.tentarReconectar());
     fonte.onerror = () => {
+      // Oscilação passageira (readyState ainda CONNECTING): o próprio
+      // EventSource já vai reconectar sozinho, não há nada a fazer aqui.
+      if (!fonte.estaFechada()) return;
       this.desconectar();
       this.cairParaWhatsapp("A conexão com o atendimento caiu. Continue pelo WhatsApp.");
     };
