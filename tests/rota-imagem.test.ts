@@ -18,6 +18,11 @@ vi.mock("@/lib/config", () => ({
 
 import { GET } from "@/app/imagens/[slug]/[indice]/route";
 import { urlDaImagem } from "@/lib/catalog/imagens";
+import { tipoPelosBytes } from "@/lib/catalog/origem-de-imagem";
+
+function bytesDeTexto(texto: string): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from(texto, (caractere) => caractere.charCodeAt(0));
+}
 
 function contexto(slug: string, indice: string) {
   return { params: Promise.resolve({ slug, indice }) };
@@ -269,5 +274,192 @@ describe("rota da imagem — segurança do proxy", () => {
       vi.fn(async () => new Response(corpo, { headers: { "content-type": "image/jpeg" } })),
     );
     expect((await pedir()).status).toBe(502);
+  });
+});
+
+describe("tipoPelosBytes — identifica o tipo pela assinatura dos primeiros bytes", () => {
+  it("identifica JPEG (FF D8 FF)", () => {
+    expect(tipoPelosBytes(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0]))).toBe("image/jpeg");
+  });
+
+  it("identifica PNG (89 50 4E 47 0D 0A 1A 0A)", () => {
+    expect(
+      tipoPelosBytes(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0])),
+    ).toBe("image/png");
+  });
+
+  it("identifica GIF (GIF87a e GIF89a)", () => {
+    expect(tipoPelosBytes(bytesDeTexto("GIF87a resto"))).toBe("image/gif");
+    expect(tipoPelosBytes(bytesDeTexto("GIF89a resto"))).toBe("image/gif");
+  });
+
+  it("identifica WebP (RIFF....WEBP)", () => {
+    const bytes = new Uint8Array(16);
+    bytes.set(bytesDeTexto("RIFF"), 0);
+    bytes.set(bytesDeTexto("WEBP"), 8);
+    expect(tipoPelosBytes(bytes)).toBe("image/webp");
+  });
+
+  it("identifica AVIF (....ftypavif / ftypavis)", () => {
+    const comAvif = new Uint8Array(12);
+    comAvif.set(bytesDeTexto("ftyp"), 4);
+    comAvif.set(bytesDeTexto("avif"), 8);
+    expect(tipoPelosBytes(comAvif)).toBe("image/avif");
+
+    const comAvis = new Uint8Array(12);
+    comAvis.set(bytesDeTexto("ftyp"), 4);
+    comAvis.set(bytesDeTexto("avis"), 8);
+    expect(tipoPelosBytes(comAvis)).toBe("image/avif");
+  });
+
+  it("não identifica SVG/HTML/texto qualquer (nenhuma assinatura bate)", () => {
+    expect(tipoPelosBytes(bytesDeTexto("<svg><script>alert(1)</script></svg>"))).toBeNull();
+    expect(tipoPelosBytes(bytesDeTexto("<html></html>"))).toBeNull();
+  });
+
+  it("não identifica corpo vazio", () => {
+    expect(tipoPelosBytes(new Uint8Array(0))).toBeNull();
+  });
+});
+
+describe("rota da imagem — content-type genérico (octet-stream do Bling)", () => {
+  const ITEM = { slug: "gt-50", images: ["https://orgbling.s3.amazonaws.com/foto?Signature=abc"] };
+
+  function imagemGenerica(
+    corpo: BodyInit,
+    tipo: string | null = "application/octet-stream",
+  ): Response {
+    const headers = new Headers();
+    if (tipo) headers.set("content-type", tipo);
+    return new Response(corpo, { headers });
+  }
+
+  async function pedir(): Promise<Response> {
+    return GET(new Request("http://site/imagens/gt-50/0"), contexto("gt-50", "0"));
+  }
+
+  beforeEach(() => {
+    buscarItem.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("octet-stream com bytes de JPEG → 200 image/jpeg", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]))),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/jpeg");
+  });
+
+  it("octet-stream com bytes de PNG → 200 image/png", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        imagemGenerica(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+      ),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/png");
+  });
+
+  it("binary/octet-stream com bytes de WebP → 200 image/webp", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    const bytes = new Uint8Array(16);
+    bytes.set(bytesDeTexto("RIFF"), 0);
+    bytes.set(bytesDeTexto("WEBP"), 8);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(bytes, "binary/octet-stream")),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/webp");
+  });
+
+  it("octet-stream com bytes de GIF → 200 image/gif", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(bytesDeTexto("GIF89a resto do arquivo"))),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/gif");
+  });
+
+  it("octet-stream com bytes de AVIF → 200 image/avif", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    const bytes = new Uint8Array(12);
+    bytes.set(bytesDeTexto("ftyp"), 4);
+    bytes.set(bytesDeTexto("avif"), 8);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(bytes)),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/avif");
+  });
+
+  it("content-type ausente com bytes de JPEG → 200 image/jpeg", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(new Uint8Array([0xff, 0xd8, 0xff]), null)),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/jpeg");
+  });
+
+  it("octet-stream com bytes de SVG (texto) → 502", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(bytesDeTexto("<svg><script>alert(1)</script></svg>"))),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+  });
+
+  it("octet-stream com corpo vazio → 502", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(new Uint8Array(0))),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+  });
+
+  it("image/svg+xml DECLARADO → 502 mesmo com bytes que parecem JPEG (não olha os bytes)", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(new Uint8Array([0xff, 0xd8, 0xff]), "image/svg+xml")),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+  });
+
+  it("o log do servidor nunca inclui a URL de origem, mesmo ao recusar", async () => {
+    buscarItem.mockResolvedValue(ITEM);
+    const avisos = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => imagemGenerica(bytesDeTexto("<html></html>"), "text/html")),
+    );
+    const resposta = await pedir();
+    expect(resposta.status).toBe(502);
+    expect(avisos).toHaveBeenCalled();
+    const textoDosAvisos = avisos.mock.calls.map((chamada) => JSON.stringify(chamada)).join(" ");
+    expect(textoDosAvisos).not.toContain("orgbling");
+    expect(textoDosAvisos).not.toContain("Signature");
+    avisos.mockRestore();
   });
 });

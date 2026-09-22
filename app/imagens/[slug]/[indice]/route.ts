@@ -1,5 +1,11 @@
 import { buscarItem } from "@/lib/catalog/client";
-import { origemPermitida, tipoDeImagemPermitido } from "@/lib/catalog/origem-de-imagem";
+import {
+  origemPermitida,
+  type TipoDeImagem,
+  tipoDeImagemGenerico,
+  tipoDeImagemPermitido,
+  tipoPelosBytes,
+} from "@/lib/catalog/origem-de-imagem";
 import { lerConfigServidor } from "@/lib/config";
 
 export const runtime = "nodejs";
@@ -32,6 +38,21 @@ function falha(status: number, texto: string): Response {
   return new Response(texto, {
     status,
     headers: { "content-type": "text/plain; charset=utf-8", ...CABECALHOS_DE_ISOLAMENTO },
+  });
+}
+
+/**
+ * Loga o motivo de uma recusa (404/502) com slug e índice — NUNCA a URL de
+ * origem, que é assinada e não pode vazar em log.
+ */
+function registrarRecusa(motivo: string, slug: string, indice: number): void {
+  console.warn(`imagem recusada: ${motivo}`, { slug, indice });
+}
+
+function sucesso(tipo: TipoDeImagem, corpo: Uint8Array<ArrayBuffer>): Response {
+  return new Response(corpo, {
+    status: 200,
+    headers: { "content-type": tipo, "cache-control": CACHE, ...CABECALHOS_DE_ISOLAMENTO },
   });
 }
 
@@ -81,14 +102,20 @@ export async function GET(_requisicao: Request, { params }: Contexto): Promise<R
 
   const item = await buscarItem(slug.slice(0, 80)).catch(() => null);
   const bruta = item?.images[posicao];
-  if (!bruta) return falha(404, "Imagem não encontrada.");
+  if (!bruta) {
+    registrarRecusa("item ou foto não encontrada", slug, posicao);
+    return falha(404, "Imagem não encontrada.");
+  }
 
   const config = lerConfigServidor();
   const origem = origemPermitida(bruta, {
     crmUrl: config.crmUrl,
     hostsExtras: config.imagensHostsExtras,
   });
-  if (!origem) return falha(404, "Imagem não encontrada.");
+  if (!origem) {
+    registrarRecusa("origem não permitida (host fora da lista)", slug, posicao);
+    return falha(404, "Imagem não encontrada.");
+  }
 
   let resposta: Response;
   try {
@@ -102,20 +129,51 @@ export async function GET(_requisicao: Request, { params }: Contexto): Promise<R
       signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
     });
   } catch {
+    registrarRecusa("falha ao buscar a origem", slug, posicao);
     return falha(502, "Imagem indisponível.");
   }
 
-  const tipo = tipoDeImagemPermitido(resposta.headers.get("content-type"));
-  if (!resposta.ok || !tipo) {
+  if (!resposta.ok) {
     await resposta.body?.cancel().catch(() => undefined);
+    registrarRecusa(`status ${resposta.status}`, slug, posicao);
     return falha(502, "Imagem indisponível.");
   }
 
-  const corpo = await lerComTeto(resposta);
-  if (!corpo) return falha(502, "Imagem indisponível.");
+  const cabecalhoTipo = resposta.headers.get("content-type");
+  const tipoDeclarado = tipoDeImagemPermitido(cabecalhoTipo);
 
-  return new Response(corpo, {
-    status: 200,
-    headers: { "content-type": tipo, "cache-control": CACHE, ...CABECALHOS_DE_ISOLAMENTO },
-  });
+  if (tipoDeclarado) {
+    const corpo = await lerComTeto(resposta);
+    if (!corpo) {
+      registrarRecusa("estourou o teto", slug, posicao);
+      return falha(502, "Imagem indisponível.");
+    }
+    return sucesso(tipoDeclarado, corpo);
+  }
+
+  if (tipoDeImagemGenerico(cabecalhoTipo)) {
+    // O S3 do Bling não guarda content-type de arquivo sem extensão no
+    // caminho: devolve genérico mesmo para uma foto real. Só nesse caso os
+    // bytes decidem o tipo — nunca quando o upstream declarou algo fora da
+    // lista (ex.: image/svg+xml, text/html), tratado abaixo.
+    const corpo = await lerComTeto(resposta);
+    if (!corpo) {
+      registrarRecusa("estourou o teto", slug, posicao);
+      return falha(502, "Imagem indisponível.");
+    }
+    const tipoPelaAssinatura = tipoPelosBytes(corpo);
+    if (!tipoPelaAssinatura) {
+      registrarRecusa(
+        `tipo não identificado pelos bytes (content-type ${cabecalhoTipo ?? "ausente"})`,
+        slug,
+        posicao,
+      );
+      return falha(502, "Imagem indisponível.");
+    }
+    return sucesso(tipoPelaAssinatura, corpo);
+  }
+
+  await resposta.body?.cancel().catch(() => undefined);
+  registrarRecusa(`tipo não permitido: ${cabecalhoTipo ?? "ausente"}`, slug, posicao);
+  return falha(502, "Imagem indisponível.");
 }
