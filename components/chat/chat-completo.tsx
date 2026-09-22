@@ -8,6 +8,7 @@ import { CONFIG_PUBLICA } from "@/lib/config-publica";
 import { ClienteWebchat } from "@/lib/webchat/cliente";
 import { FilaDeExibicao } from "@/lib/webchat/fila";
 import type { EstadoDoChat } from "@/lib/webchat/tipos";
+import { linkDoWhatsapp } from "@/lib/webchat/whatsapp";
 
 const CHAVE_LGPD = "m10_lgpd_aceito";
 /** Spec 9: sem resposta em 45 s, o visitante recebe contingência e o WhatsApp. */
@@ -16,6 +17,21 @@ const ESPERA_MAXIMA_MS = 45_000;
 const ESPERA_PARA_DESLIGAR_MS = 60_000;
 const AVISO_CONTINGENCIA =
   "Nosso especialista está demorando para responder. Se preferir, continue pelo WhatsApp.";
+const AVISO_FALHA_NA_ABERTURA = "Não consegui abrir o atendimento agora. Continue pelo WhatsApp.";
+
+/**
+ * O que o painel mostra antes de o cliente dizer qualquer coisa (Turnstile
+ * resolvendo, sessão a caminho): já em "abrindo", com o WhatsApp à mão.
+ */
+const ESTADO_ABRINDO: EstadoDoChat = {
+  fase: "abrindo",
+  bolhas: [],
+  digitando: false,
+  vendedorEntrou: false,
+  linkDoWhatsapp: linkDoWhatsapp(CONFIG_PUBLICA.whatsappFallback),
+  ofereceuWhatsapp: false,
+  aviso: null,
+};
 
 function leu(chave: string): string | null {
   try {
@@ -114,12 +130,19 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
 
   const iniciar = useCallback(async () => {
     const cliente = garantirCliente();
-    const token = await resolverTurnstile(CONFIG_PUBLICA.turnstileSiteKey);
-    await cliente.abrir(token);
-    // Desmontado no meio do caminho (ex.: modo estrito): não liga o fluxo de
-    // um cliente que ninguém mais escuta.
-    if (clienteRef.current !== cliente) return;
-    cliente.conectar();
+    try {
+      // O Turnstile já não lança (qualquer falha vira "sem token", e o CRM
+      // decide); o `catch` é a última rede para qualquer surpresa daqui até
+      // o SSE ligar — o visitante nunca fica num painel sem saída.
+      const token = await resolverTurnstile(CONFIG_PUBLICA.turnstileSiteKey);
+      await cliente.abrir(token);
+      // Desmontado no meio do caminho (ex.: modo estrito): não liga o fluxo de
+      // um cliente que ninguém mais escuta.
+      if (clienteRef.current !== cliente) return;
+      cliente.conectar();
+    } catch {
+      cliente.cairParaWhatsapp(AVISO_FALHA_NA_ABERTURA);
+    }
   }, [garantirCliente]);
 
   // Cada pedido de abertura vindo do botão (ou de um `data-abrir-chat`).
@@ -199,17 +222,17 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     );
   }
 
-  if (!estado) return null;
+  const atual = estado ?? ESTADO_ABRINDO;
 
   return (
     <Painel
       estado={{
-        ...estado,
-        bolhas: estado.bolhas.slice(0, visiveis),
+        ...atual,
+        bolhas: atual.bolhas.slice(0, visiveis),
         // Combinadas só na hora de renderizar: a contingência é estado do
         // widget, nunca escrito dentro do `estado` que veio do núcleo.
-        ofereceuWhatsapp: estado.ofereceuWhatsapp || contingenciaAtiva,
-        aviso: estado.aviso ?? (contingenciaAtiva ? AVISO_CONTINGENCIA : null),
+        ofereceuWhatsapp: atual.ofereceuWhatsapp || contingenciaAtiva,
+        aviso: atual.aviso ?? (contingenciaAtiva ? AVISO_CONTINGENCIA : null),
       }}
       aoEnviar={(texto) => void enviar(texto)}
       aoFechar={aoFechar}

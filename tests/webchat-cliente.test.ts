@@ -198,6 +198,32 @@ describe("abertura de sessão", () => {
     );
     expect(cliente.estado.aviso).toMatch(/WhatsApp/i);
   });
+
+  it("resposta de sessão fora do formato cai para o WhatsApp em vez de travar em 'abrindo'", async () => {
+    const { cliente, armazenamento } = montar([json({ data: { token: 42, messages: "nada" } })]);
+
+    await cliente.abrir();
+
+    expect(cliente.estado.fase).toBe("degradado");
+    expect(cliente.estado.aviso).toMatch(/whatsapp/i);
+    expect(armazenamento.getItem(`webchat_token_${CHAVE}`)).toBeNull();
+  });
+
+  it("corpo de sessão que não é JSON cai para o WhatsApp", async () => {
+    const { cliente } = montar([
+      new Response("<html>proxy</html>", { status: 200, headers: { "content-type": "text/html" } }),
+    ]);
+
+    await cliente.abrir();
+
+    expect(cliente.estado.fase).toBe("degradado");
+  });
+
+  it("a abertura de sessão tem tempo limite", async () => {
+    const { cliente, chamadas } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    expect(chamadas[0]?.init.signal).toBeInstanceOf(AbortSignal);
+  });
 });
 
 describe("envio", () => {
@@ -264,6 +290,13 @@ describe("envio", () => {
 
     expect(cliente.estado.aviso).toMatch(/envie a mensagem de novo/i);
     expect(cliente.estado.bolhas.at(-1)?.situacao).toBe("falhou");
+  });
+
+  it("o envio tem tempo limite", async () => {
+    const { cliente, chamadas } = montar([json(SESSAO_OK), json({ data: { ok: true } }, 202)]);
+    await cliente.abrir();
+    await cliente.enviar("oi", { url: "https://site", item: null });
+    expect(chamadas[1]?.init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("recusa texto vazio ou acima de 1000 caracteres antes de gastar cota", async () => {
@@ -375,6 +408,31 @@ describe("fluxo de eventos", () => {
     expect(() =>
       fontes[0]?.ouvintes.get("digitando")?.({ data: "{ isto também não é json" }),
     ).not.toThrow();
+    expect(cliente.estado.digitando).toBe(false);
+  });
+
+  it("evento de SSE em JSON válido mas fora do formato é ignorado, sem virar bolha", async () => {
+    const { cliente, fontes } = montar([json(SESSAO_OK)]);
+    await cliente.abrir();
+    cliente.conectar();
+    const antes = cliente.estado.bolhas.length;
+
+    fontes[0]?.emitir("mensagem", { id: 7, body: { html: "<b>x</b>" } });
+    fontes[0]?.emitir("digitando", { digitando: "talvez" });
+
+    expect(cliente.estado.bolhas).toHaveLength(antes);
+    expect(cliente.estado.digitando).toBe(false);
+    expect(cliente.estado.fase).toBe("pronto");
+  });
+
+  it("sincronizar ignora resposta fora do formato sem lançar", async () => {
+    const { cliente } = montar([json(SESSAO_OK), json({ data: { messages: "x", typing: 1 } })]);
+    await cliente.abrir();
+    const antes = cliente.estado.bolhas.length;
+
+    await expect(cliente.sincronizar()).resolves.toBeUndefined();
+
+    expect(cliente.estado.bolhas).toHaveLength(antes);
     expect(cliente.estado.digitando).toBe(false);
   });
 

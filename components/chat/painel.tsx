@@ -23,8 +23,19 @@ export function Painel({
   const painel = useRef<HTMLDivElement>(null);
   const campo = useRef<HTMLTextAreaElement>(null);
 
+  const degradado = estado.fase === "degradado";
+  const abrindo = estado.fase === "abrindo";
+  const semCampo = degradado || abrindo;
+
+  // Foco inicial dentro do diálogo: no campo quando ele existe; senão no
+  // próprio painel. Quando a sessão termina de abrir, o campo aparece e
+  // recebe o foco.
   useEffect(() => {
-    campo.current?.focus();
+    if (semCampo) painel.current?.focus();
+    else campo.current?.focus();
+  }, [semCampo]);
+
+  useEffect(() => {
     function aoTeclar(evento: KeyboardEvent) {
       if (evento.key === "Escape") {
         aoFechar();
@@ -54,14 +65,13 @@ export function Painel({
     return () => document.removeEventListener("keydown", aoTeclar);
   }, [aoFechar]);
 
-  const degradado = estado.fase === "degradado";
-
   return (
     <div
       ref={painel}
       role="dialog"
       aria-label="Conversa com o especialista"
       aria-modal="true"
+      tabIndex={-1}
       className="fixed bottom-24 right-4 z-50 flex h-[32rem] w-[min(24rem,calc(100vw-2rem))] flex-col rounded-tecnico border border-borda bg-superficie shadow-2xl"
     >
       <header className="flex items-center justify-between border-b border-borda px-4 py-3">
@@ -87,7 +97,23 @@ export function Painel({
         vendedorEntrou={estado.vendedorEntrou}
       />
 
+      {abrindo ? (
+        <p role="status" className="px-4 pb-2 text-sm text-texto-secundario">
+          Conectando ao especialista…
+        </p>
+      ) : null}
+
       {estado.aviso ? <p className="px-4 pb-2 text-xs text-laranja">{estado.aviso}</p> : null}
+
+      {abrindo && !estado.ofereceuWhatsapp ? (
+        <a
+          href={estado.linkDoWhatsapp}
+          rel="noopener"
+          className="mx-4 mb-3 min-h-11 rounded-tecnico border border-laranja px-4 py-2 text-center text-sm font-semibold text-laranja"
+        >
+          Prefiro falar pelo WhatsApp
+        </a>
+      ) : null}
 
       {estado.ofereceuWhatsapp || degradado ? (
         <a
@@ -99,7 +125,7 @@ export function Painel({
         </a>
       ) : null}
 
-      {degradado ? null : (
+      {semCampo ? null : (
         <form
           className="flex gap-2 border-t border-borda p-3"
           onSubmit={(evento) => {

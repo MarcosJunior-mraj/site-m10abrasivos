@@ -1,3 +1,4 @@
+import { esquemaDigitando, esquemaMensagem, esquemaMensagens, esquemaSessao } from "./esquemas";
 import type {
   Bolha,
   ContextoDaPagina,
@@ -8,6 +9,8 @@ import type {
 import { linkDoWhatsapp } from "./whatsapp";
 
 const TAMANHO_MAXIMO = 1000;
+/** Sessão e envio: sem resposta nisto, desiste em vez de deixar o painel girando. */
+const TEMPO_LIMITE_MS = 10_000;
 /** Piso entre reconexões: o mesmo intervalo que o CRM manda no campo `retry:` do SSE. */
 const RECONEXAO_INTERVALO_MINIMO_MS = 15_000;
 /** Depois de tantas tentativas seguidas, desiste e oferece o WhatsApp em vez de girar gastando cota. */
@@ -49,6 +52,15 @@ function criarFonteViaEventSource(url: string): FonteDeEventos {
       tratadorDeErro = ouvinte;
     },
   };
+}
+
+/** `JSON.parse` que devolve `undefined` em vez de lançar — o esquema decide o resto. */
+function lerJson(texto: string): unknown {
+  try {
+    return JSON.parse(texto);
+  } catch {
+    return undefined;
+  }
 }
 
 export class ClienteWebchat {
@@ -173,6 +185,7 @@ export class ClienteWebchat {
         method: "POST",
         headers: cabecalhos,
         body: JSON.stringify({ turnstileToken }),
+        signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
       });
     } catch {
       this.cairParaWhatsapp("Não consegui falar com o atendimento agora. Continue pelo WhatsApp.");
@@ -188,9 +201,20 @@ export class ClienteWebchat {
       return;
     }
 
-    const { data } = (await resposta.json()) as {
-      data: { token: string; whatsappNumber: string | null; messages: MensagemPublica[] };
-    };
+    // Formato inesperado (proxy devolvendo HTML, contrato mudado no CRM)
+    // não pode deixar o painel preso em "abrindo": vai para o WhatsApp.
+    let corpo: unknown;
+    try {
+      corpo = await resposta.json();
+    } catch {
+      corpo = null;
+    }
+    const sessao = esquemaSessao.safeParse(corpo);
+    if (!sessao.success) {
+      this.cairParaWhatsapp("O atendimento do site está indisponível. Continue pelo WhatsApp.");
+      return;
+    }
+    const { data } = sessao.data;
     this.token = data.token;
     this.guardarToken(data.token);
     if (data.whatsappNumber) this.numero = data.whatsappNumber;
@@ -203,7 +227,8 @@ export class ClienteWebchat {
     for (const mensagem of data.messages) this.receber(mensagem);
   }
 
-  private cairParaWhatsapp(aviso: string): void {
+  /** Público para o widget usar quando algo FORA do cliente falha (Turnstile, abertura que lançou). */
+  cairParaWhatsapp(aviso: string): void {
     this.mudar({ fase: "degradado", aviso, linkDoWhatsapp: linkDoWhatsapp(this.numero) });
   }
 
@@ -263,6 +288,7 @@ export class ClienteWebchat {
         method: "POST",
         headers: { "content-type": "application/json", "x-webchat-token": this.token },
         body: JSON.stringify({ clientMessageId, body: limpo, pageContext: contexto }),
+        signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
       });
     } catch {
       this.marcar(idLocal, "falhou");
@@ -330,22 +356,17 @@ export class ClienteWebchat {
   /** Payload malformado não pode derrubar o listener nem sumir sem rastro: ignora só aquele evento. */
   private tratarMensagemRecebida(evento: { data: string }): void {
     this.marcarConexaoSaudavel();
-    try {
-      const mensagem = JSON.parse(evento.data) as MensagemPublica;
-      this.receber(mensagem);
-    } catch {
-      // Mesma tolerância do parse abaixo: um evento ruim não é motivo para travar o chat.
-    }
+    const mensagem = esquemaMensagem.safeParse(lerJson(evento.data));
+    // Um evento ruim é ignorado sozinho: não é motivo para derrubar um chat
+    // que está funcionando (a sessão, essa sim, degrada — ver `abrirFluxo`).
+    if (mensagem.success) this.receber(mensagem.data);
   }
 
   private tratarDigitando(evento: { data: string }): void {
     this.marcarConexaoSaudavel();
-    try {
-      const dados = JSON.parse(evento.data) as { digitando: boolean };
-      this.mudar({ digitando: dados.digitando });
-    } catch {
-      // Ignora o evento malformado; o indicador simplesmente não muda desta vez.
-    }
+    const dados = esquemaDigitando.safeParse(lerJson(evento.data));
+    // Evento malformado: o indicador simplesmente não muda desta vez.
+    if (dados.success) this.mudar({ digitando: dados.data.digitando });
   }
 
   /** Um evento de verdade prova que a conexão está viva: zera o contador do freio de reconexão. */
@@ -390,11 +411,10 @@ export class ClienteWebchat {
         headers: { "x-webchat-token": this.token },
       });
       if (!resposta.ok) return;
-      const { data } = (await resposta.json()) as {
-        data: { messages: MensagemPublica[]; typing: boolean };
-      };
-      for (const mensagem of data.messages) this.receber(mensagem);
-      this.mudar({ digitando: data.typing });
+      const lidas = esquemaMensagens.safeParse(await resposta.json());
+      if (!lidas.success) return;
+      for (const mensagem of lidas.data.data.messages) this.receber(mensagem);
+      this.mudar({ digitando: lidas.data.data.typing });
     } catch {
       // Silêncio de propósito: a sincronização é oportunista, o SSE é o caminho principal.
     }

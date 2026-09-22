@@ -77,6 +77,15 @@ describe("Painel", () => {
     expect(screen.getByText(/continue pelo whatsapp/i)).toBeDefined();
   });
 
+  it("abrindo: mostra o indicador e o WhatsApp, sem campo ainda", () => {
+    render(<Painel estado={estado({ fase: "abrindo" })} {...acoes} />);
+    expect(screen.getByRole("status").textContent).toMatch(/conectando/i);
+    expect(screen.getByRole("link", { name: /whatsapp/i }).getAttribute("href")).toBe(
+      "https://wa.me/5511999999999?text=Oi!%20Vim%20do%20site.",
+    );
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
   it("fecha com Esc", async () => {
     const usuario = userEvent.setup();
     render(<Painel estado={estado({})} {...acoes} />);

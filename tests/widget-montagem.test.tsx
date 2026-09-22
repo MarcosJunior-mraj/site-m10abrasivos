@@ -15,6 +15,7 @@ vi.mock("@/lib/webchat/cliente", async () => {
 beforeEach(() => {
   localStorage.clear();
   ClienteWebchatFalso.instancias = [];
+  ClienteWebchatFalso.modoDeAbrir = "normal";
 });
 
 afterEach(() => {
@@ -120,5 +121,34 @@ describe("Widget — montagem", () => {
     await usuario.click(screen.getByTestId("botao-chat"));
     await screen.findByRole("textbox", { name: /mensagem/i });
     expect(ClienteWebchatFalso.instancias.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("enquanto a sessão abre, o painel já aparece com indicador e o link do WhatsApp (I3)", async () => {
+    localStorage.setItem(CHAVE_LGPD, "1");
+    ClienteWebchatFalso.modoDeAbrir = "pendurada";
+    const usuario = userEvent.setup();
+    render(<Widget />);
+
+    await usuario.click(screen.getByTestId("botao-chat"));
+
+    // Espera o painel de verdade (o cliente já existe e a abertura está pendurada).
+    await vi.waitFor(() => expect(ClienteWebchatFalso.instancias.length).toBeGreaterThan(0));
+    const painel = await screen.findByRole("dialog", { name: /conversa com o especialista/i });
+    expect(painel.textContent).toMatch(/conectando/i);
+    expect(screen.getByRole("link", { name: /whatsapp/i }).getAttribute("href")).toMatch(
+      /^https:\/\/wa\.me\//,
+    );
+  });
+
+  it("abertura que lança degrada para o WhatsApp em vez de ficar sem saída (I3)", async () => {
+    localStorage.setItem(CHAVE_LGPD, "1");
+    ClienteWebchatFalso.modoDeAbrir = "lanca";
+    const usuario = userEvent.setup();
+    render(<Widget />);
+
+    await usuario.click(screen.getByTestId("botao-chat"));
+
+    expect(await screen.findByRole("link", { name: /continuar no whatsapp/i })).toBeDefined();
+    expect(ClienteWebchatFalso.instancias.at(-1)?.estado.fase).toBe("degradado");
   });
 });

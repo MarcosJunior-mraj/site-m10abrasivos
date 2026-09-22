@@ -23,9 +23,13 @@ function estadoInicial(): EstadoDoChat {
  */
 export class ClienteWebchatFalso {
   static instancias: ClienteWebchatFalso[] = [];
+  /** Como a próxima `abrir()` se comporta: resolve na hora, lança, ou fica pendurada para sempre. */
+  static modoDeAbrir: "normal" | "lanca" | "pendurada" = "normal";
 
   estado: EstadoDoChat;
   chamadasDeSincronizar = 0;
+  chamadasDeConectar = 0;
+  chamadasDeDesconectar = 0;
 
   private ouvintesDeMudanca: Array<(estado: EstadoDoChat) => void> = [];
 
@@ -47,7 +51,13 @@ export class ClienteWebchatFalso {
   }
 
   async abrir(_turnstileToken: string | null = null): Promise<void> {
+    if (ClienteWebchatFalso.modoDeAbrir === "lanca") throw new Error("abertura estourou");
+    if (ClienteWebchatFalso.modoDeAbrir === "pendurada") return new Promise<void>(() => undefined);
     this.mudar({ fase: "pronto" });
+  }
+
+  cairParaWhatsapp(aviso: string): void {
+    this.mudar({ fase: "degradado", aviso });
   }
 
   async enviar(_texto: string, _contexto: unknown): Promise<void> {
@@ -55,9 +65,13 @@ export class ClienteWebchatFalso {
     // núcleo diretamente via `emitir`, não através de um envio de verdade.
   }
 
-  conectar(): void {}
+  conectar(): void {
+    this.chamadasDeConectar += 1;
+  }
 
-  desconectar(): void {}
+  desconectar(): void {
+    this.chamadasDeDesconectar += 1;
+  }
 
   async sincronizar(): Promise<void> {
     this.chamadasDeSincronizar += 1;
