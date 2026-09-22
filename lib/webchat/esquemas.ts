@@ -1,38 +1,39 @@
-import { z } from "zod/mini";
+import { array, boolean, enum as enumeracao, minLength, nullable, object, string } from "zod/mini";
 
 /**
  * Validação do que o CRM devolve ao navegador. `zod/mini` (e não o `zod`
- * completo) porque este arquivo vai no pedaço do chat baixado no clique —
- * a API funcional dele deixa o empacotador levar só o que é usado.
+ * completo) porque este arquivo vai no pedaço do chat baixado no clique.
+ * Importações NOMEADAS de propósito: com `import { z }` o empacotador leva o
+ * objeto `z` inteiro (todos os formatos, locais etc.); assim leva só o usado.
  */
 
 /** Igual ao `PublicMessage` do CRM (`lib/webchat/queries.ts`). */
-export const esquemaMensagem = z.object({
-  id: z.string(),
-  from: z.enum(["cliente", "especialista"]),
-  by: z.enum(["cliente", "ia", "vendedor"]),
-  body: z.string(),
-  createdAt: z.string(),
-  externalId: z.nullable(z.string()),
-  event: z.nullable(z.enum(["handoff_whatsapp"])),
+export const esquemaMensagem = object({
+  id: string(),
+  from: enumeracao(["cliente", "especialista"]),
+  by: enumeracao(["cliente", "ia", "vendedor"]),
+  body: string(),
+  createdAt: string(),
+  externalId: nullable(string()),
+  event: nullable(enumeracao(["handoff_whatsapp"])),
 });
 
 /** `POST /session`. */
-export const esquemaSessao = z.object({
-  data: z.object({
-    token: z.string().check(z.minLength(1)),
-    whatsappNumber: z.nullable(z.string()),
-    messages: z.array(esquemaMensagem),
+export const esquemaSessao = object({
+  data: object({
+    token: string().check(minLength(1)),
+    whatsappNumber: nullable(string()),
+    messages: array(esquemaMensagem),
   }),
 });
 
 /** `GET /messages`. */
-export const esquemaMensagens = z.object({
-  data: z.object({
-    messages: z.array(esquemaMensagem),
-    typing: z.boolean(),
+export const esquemaMensagens = object({
+  data: object({
+    messages: array(esquemaMensagem),
+    typing: boolean(),
   }),
 });
 
 /** Evento SSE `digitando`. */
-export const esquemaDigitando = z.object({ digitando: z.boolean() });
+export const esquemaDigitando = object({ digitando: boolean() });
