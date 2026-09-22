@@ -22,11 +22,43 @@ function temTurnstile(g: unknown): g is JanelaComTurnstile {
 }
 
 const FONTE = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+/** Script da Cloudflare que não chega nisto (bloqueador, rede ruim): segue sem token. */
+const ESPERA_DO_SCRIPT_MS = 8_000;
+/** Desafio que não responde nisto: segue sem token. */
+const ESPERA_DO_TOKEN_MS = 10_000;
+
+/** Carrega o script uma vez; resolve quando `turnstile` existe ou quando desiste (nunca rejeita). */
+function carregarScript(janela: unknown): Promise<void> {
+  return new Promise<void>((resolver) => {
+    if (temTurnstile(janela)) {
+      resolver();
+      return;
+    }
+    const desistir = setTimeout(resolver, ESPERA_DO_SCRIPT_MS);
+    const terminar = () => {
+      clearTimeout(desistir);
+      resolver();
+    };
+    const script = document.createElement("script");
+    script.src = FONTE;
+    script.async = true;
+    script.onload = terminar;
+    script.onerror = terminar;
+    document.head.appendChild(script);
+  });
+}
 
 /**
- * Resolve o token do desafio invisível do Cloudflare. Sem chave configurada
- * (o estado do canal hoje), devolve `null` na hora — o CRM aceita e ninguém
- * carrega script nenhum.
+ * Resolve o token do desafio do Cloudflare. Sem chave configurada (o estado
+ * do canal hoje), devolve `null` na hora — o CRM aceita e ninguém carrega
+ * script nenhum.
+ *
+ * Não passa `size`: "invisible" não é valor válido de `render` (o
+ * `render` lança). Ser invisível é o TIPO de widget escolhido no painel da
+ * Cloudflare para esta site key. Qualquer falha — script bloqueado ou
+ * lento, `render` que lança, erro do desafio, demora — vira `null`: o
+ * painel segue sem token e o CRM decide se aceita. Esta função nunca
+ * rejeita.
  */
 export async function resolverTurnstile(siteKey: string): Promise<string | null> {
   if (!siteKey) return null;
@@ -36,19 +68,7 @@ export async function resolverTurnstile(siteKey: string): Promise<string | null>
   // isso a capturamos aqui em vez de checar `globalThis` diretamente.
   const janela: unknown = globalThis;
 
-  await new Promise<void>((resolver, rejeitar) => {
-    if (temTurnstile(janela)) {
-      resolver();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = FONTE;
-    script.async = true;
-    script.onload = () => resolver();
-    script.onerror = () => rejeitar(new Error("Turnstile não carregou"));
-    document.head.appendChild(script);
-  }).catch(() => undefined);
-
+  await carregarScript(janela);
   if (!temTurnstile(janela)) return null;
   const { turnstile } = janela;
 
@@ -57,18 +77,20 @@ export async function resolverTurnstile(siteKey: string): Promise<string | null>
   document.body.appendChild(caixa);
 
   return new Promise<string | null>((resolver) => {
-    const desistir = setTimeout(() => resolver(null), 10_000);
-    turnstile.render(caixa, {
-      sitekey: siteKey,
-      size: "invisible",
-      callback: (token: string) => {
-        clearTimeout(desistir);
-        resolver(token);
-      },
-      "error-callback": () => {
-        clearTimeout(desistir);
-        resolver(null);
-      },
-    });
+    const desistir = setTimeout(() => resolver(null), ESPERA_DO_TOKEN_MS);
+    const terminar = (token: string | null) => {
+      clearTimeout(desistir);
+      resolver(token);
+    };
+    try {
+      turnstile.render(caixa, {
+        sitekey: siteKey,
+        callback: (token: string) => terminar(token),
+        "error-callback": () => terminar(null),
+        "timeout-callback": () => terminar(null),
+      });
+    } catch {
+      terminar(null);
+    }
   });
 }
