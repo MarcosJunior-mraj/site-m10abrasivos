@@ -34,9 +34,39 @@ const ITEM_COM_FOTO = {
 };
 
 describe("urlDaImagem", () => {
-  it("monta o caminho do próprio site", () => {
-    expect(urlDaImagem("gt-50")).toBe("/imagens/gt-50/0");
-    expect(urlDaImagem("kit gt", 2)).toBe("/imagens/kit%20gt/2");
+  const HD =
+    "https://x.supabase.co/storage/v1/object/public/produtos-fotos/org/1/1-db173a28aedd.png";
+
+  it("monta o caminho do próprio site com a versão da foto", () => {
+    expect(urlDaImagem({ slug: "gt-50", images: [HD] })).toMatch(
+      /^\/imagens\/gt-50\/0\?v=[0-9a-z]+$/,
+    );
+    expect(urlDaImagem({ slug: "kit gt", images: ["a", "b", HD] }, 2)).toMatch(
+      /^\/imagens\/kit%20gt\/2\?v=/,
+    );
+  });
+
+  it("muda a versão quando a foto muda — o navegador não fica com a antiga", () => {
+    const antes = urlDaImagem({ slug: "gt-50", images: [HD] });
+    const depois = urlDaImagem({
+      slug: "gt-50",
+      images: [HD.replace("db173a28aedd", "52ed2b7efed0")],
+    });
+    expect(depois).not.toBe(antes);
+  });
+
+  it("ignora a assinatura da URL do Bling, que muda a cada leitura", () => {
+    const base = "https://orgbling.s3.amazonaws.com/96eac/t/b33ba916";
+    const um = urlDaImagem({ slug: "gt-50", images: [`${base}?Expires=1&Signature=a`] });
+    const outro = urlDaImagem({ slug: "gt-50", images: [`${base}?Expires=2&Signature=b`] });
+    expect(um).toBe(outro);
+    expect(um).not.toContain("amazonaws");
+  });
+
+  it("devolve como está o caminho que já é do site (item já preparado para o navegador)", () => {
+    expect(urlDaImagem({ slug: "gt-50", images: ["/imagens/gt-50/0?v=abc"] })).toBe(
+      "/imagens/gt-50/0?v=abc",
+    );
   });
 });
 

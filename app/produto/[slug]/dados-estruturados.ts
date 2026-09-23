@@ -14,7 +14,7 @@ export function dadosEstruturados(item: ItemCatalogo, siteUrl: string): Record<s
     description: descricaoDoItem(item),
     brand: { "@type": "Brand", name: "M10 Abrasivos" },
     category: item.category?.name,
-    image: item.images.map((_, indice) => `${siteUrl}${urlDaImagem(item.slug, indice)}`),
+    image: item.images.map((_, indice) => `${siteUrl}${urlDaImagem(item, indice)}`),
     url: `${siteUrl}/produto/${item.slug}`,
   };
 }

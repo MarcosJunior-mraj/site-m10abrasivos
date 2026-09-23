@@ -40,6 +40,14 @@ describe("CartaoItem", () => {
     const src = decodeURIComponent(imagem?.getAttribute("src") ?? "");
     expect(src).toContain("/imagens/gt-50/0");
     expect(src).not.toContain("amazonaws");
+    expect(src).toMatch(/\/imagens\/gt-50\/0\?v=/);
+  });
+
+  it("mostra a foto inteira, sem cortar o produto", () => {
+    const { container } = render(<CartaoItem item={item({})} />);
+    const imagem = container.querySelector("img");
+    expect(imagem?.className).toContain("object-contain");
+    expect(imagem?.className).not.toContain("object-cover");
   });
 
   it("não mostra preço nem promessa de preço", () => {

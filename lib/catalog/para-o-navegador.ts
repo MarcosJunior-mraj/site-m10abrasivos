@@ -20,7 +20,7 @@ export function itemParaONavegador(item: ItemCatalogo): ItemCatalogo {
   return {
     ...item,
     description: descricao ? descricao : null,
-    images: item.images.map((_, indice) => urlDaImagem(item.slug, indice)),
+    images: item.images.map((_, indice) => urlDaImagem(item, indice)),
     specs: {},
     seoTitle: null,
     seoDescription: null,

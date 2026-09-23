@@ -35,7 +35,10 @@ describe("itemParaONavegador", () => {
 
   it("mantém o que a grade e os filtros usam", () => {
     const seguro = itemParaONavegador(ITEM);
-    expect(seguro.images).toEqual(["/imagens/gt-120/0", "/imagens/gt-120/1"]);
+    expect(seguro.images).toHaveLength(2);
+    expect(seguro.images[0]).toMatch(/^\/imagens\/gt-120\/0\?v=/);
+    expect(seguro.images[1]).toMatch(/^\/imagens\/gt-120\/1\?v=/);
+    expect(seguro.images[0]).not.toBe(seguro.images[1].replace("/1?", "/0?"));
     expect(seguro.description).toBe("Abrasivo para polimento intermediário.");
     expect(seguro).toMatchObject({
       slug: "gt-120",

@@ -24,7 +24,12 @@ export default async function configuracao(fase: string): Promise<NextConfig> {
     reactStrictMode: true,
     // As imagens entram pela rota /imagens/[slug]/[indice], do próprio site:
     // nenhuma URL assinada do Bling aparece no HTML, então não há host remoto.
-    images: { formats: ["image/avif", "image/webp"] },
+    // `/imagens/**` sem `search` aceita a versão da foto (`?v=`, ver
+    // `urlDaImagem`); as demais imagens locais (logo etc.) vão sem query.
+    images: {
+      formats: ["image/avif", "image/webp"],
+      localPatterns: [{ pathname: "/imagens/**" }, { pathname: "/**", search: "" }],
+    },
     async headers() {
       return [
         { source: "/:path*", headers: CABECALHOS_DE_SEGURANCA },

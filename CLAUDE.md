@@ -42,7 +42,10 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   do binário (`cache-control: public, max-age=86400,
   stale-while-revalidate=604800` — a resposta ESTÁVEL é cacheada, não a URL
   volátil de origem). `revalidateTag("catalog")` também derruba essa rota,
-  então foto trocada no Bling aparece na revalidação seguinte.
+  então foto trocada no Bling aparece na revalidação seguinte. O
+  caminho leva `?v=<hash da URL de origem sem a query>` (`urlDaImagem`):
+  foto nova = caminho novo, então o navegador e o otimizador do Next não
+  ficam presos à cópia antiga pelo `max-age` de 1 dia. A rota ignora a query.
 - **A rota de imagem é um proxy no servidor — por isso é fechada**: só busca
   em hosts da lista única de `lib/catalog/origem-de-imagem.ts` (armazenamento
   do Bling, a origem do próprio `CRM_URL` e `IMAGENS_HOSTS_EXTRAS`),

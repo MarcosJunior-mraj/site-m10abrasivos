@@ -1,4 +1,5 @@
 import { PHASE_DEVELOPMENT_SERVER, PHASE_PRODUCTION_BUILD } from "next/constants";
+import { hasLocalMatch } from "next/dist/shared/lib/match-local-pattern";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { conferirVariaveisDeBuild } from "@/lib/conferir-build";
 import configuracao from "@/next.config";
@@ -66,5 +67,16 @@ describe("next.config", () => {
     const daImagem = cabecalhosDe("/imagens/gt-50/0");
     expect(daImagem["x-content-type-options"]).toBe("nosniff");
     expect(daImagem["content-security-policy"]).toBeUndefined();
+  });
+});
+
+describe("next.config — imagens locais", () => {
+  it("aceita a versão (?v=) só na rota de fotos; o resto das imagens locais vai sem query", async () => {
+    const { images } = await configuracao(PHASE_DEVELOPMENT_SERVER);
+    const casa = (caminho: string) => hasLocalMatch(images?.localPatterns, caminho);
+    expect(casa("/imagens/gt-50/0?v=1abc")).toBe(true);
+    expect(casa("/imagens/gt-50/0")).toBe(true);
+    expect(casa("/logo-m10-negativo.png")).toBe(true);
+    expect(casa("/logo-m10-negativo.png?x=1")).toBe(false);
   });
 });

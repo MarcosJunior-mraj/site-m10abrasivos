@@ -38,7 +38,7 @@ export async function generateMetadata({
     openGraph: {
       title: titulo,
       description: descricao,
-      images: temImagem(item) ? [urlDaImagem(item.slug, 0)] : [],
+      images: temImagem(item) ? [urlDaImagem(item)] : [],
     },
   };
 }
@@ -75,12 +75,12 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
           <div className="relative aspect-square overflow-hidden rounded-tecnico border border-borda bg-superficie">
             {temImagem(item) ? (
               <Image
-                src={urlDaImagem(item.slug, 0)}
+                src={urlDaImagem(item)}
                 alt={item.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 priority
-                className="object-cover"
+                className="bg-white object-contain p-4"
               />
             ) : (
               <div aria-hidden className="grade-tecnica flex h-full items-center justify-center">
