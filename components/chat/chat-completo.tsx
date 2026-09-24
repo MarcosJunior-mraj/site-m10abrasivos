@@ -5,6 +5,7 @@ import { AvisoLgpd } from "@/components/chat/aviso-lgpd";
 import { Painel } from "@/components/chat/painel";
 import { resolverTurnstile } from "@/components/chat/turnstile";
 import { CONFIG_PUBLICA } from "@/lib/config-publica";
+import { registrarEvento } from "@/lib/medicao";
 import { ClienteWebchat } from "@/lib/webchat/cliente";
 import { FilaDeExibicao } from "@/lib/webchat/fila";
 import type { EstadoDoChat } from "@/lib/webchat/tipos";
@@ -150,6 +151,7 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
         item: itemRef.current,
         abertura: aberturaRef.current,
       });
+      registrarEvento("mensagem_enviada", { item: itemRef.current });
       if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
       contingenciaRef.current = setTimeout(() => {
         setContingenciaAtiva(true);
