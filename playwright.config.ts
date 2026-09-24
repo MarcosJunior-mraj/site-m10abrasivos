@@ -32,6 +32,8 @@ export default defineConfig({
         NEXT_PUBLIC_WEBCHAT_KEY: "m10chat_teste",
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
         NEXT_PUBLIC_WHATSAPP_FALLBACK: "5511999999999",
+        NEXT_PUBLIC_MIDIA_URL: "http://localhost:3101/midia",
+        MOSTRAR_RASCUNHOS: "1",
       },
     },
   ],
