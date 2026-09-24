@@ -303,8 +303,9 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   if (!aberto) return null;
 
   if (precisaAceitar) {
-    return (
+    const aviso = (
       <AvisoLgpd
+        variante={pedido.destino ? "embutido" : "flutuante"}
         aoAceitar={() => {
           try {
             localStorage.setItem(CHAVE_LGPD, "1");
@@ -317,6 +318,8 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
         aoRecusar={aoFechar}
       />
     );
+    // Mesmo lugar do painel: dentro da seção quando o pedido veio de um chat embutido.
+    return pedido.destino ? createPortal(aviso, pedido.destino) : aviso;
   }
 
   const atual = estado ?? ESTADO_ABRINDO;

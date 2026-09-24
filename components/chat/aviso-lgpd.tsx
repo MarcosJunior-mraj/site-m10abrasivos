@@ -9,19 +9,26 @@ import { useEffect, useRef } from "react";
  * inicial dentro do diálogo, Tab/Shift+Tab presos nas suas pontas e Esc
  * fechando pelo mesmo caminho do botão "Agora não" (devolve o foco ao botão
  * flutuante, porque `aoRecusar` já é essa função no `Widget`).
+ *
+ * Variante "embutido" (chat aberto por uma seção da página): mesmo lugar do
+ * painel embutido — uma região dentro da seção, sem prender o foco nem
+ * fechar no Esc, como o `Painel` embutido.
  */
 export function AvisoLgpd({
   aoAceitar,
   aoRecusar,
+  variante = "flutuante",
 }: {
   aoAceitar: () => void;
   aoRecusar: () => void;
+  variante?: "flutuante" | "embutido";
 }) {
   const aviso = useRef<HTMLDivElement>(null);
   const aceitar = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     aceitar.current?.focus();
+    if (variante === "embutido") return;
     function aoTeclar(evento: KeyboardEvent) {
       if (evento.key === "Escape") {
         aoRecusar();
@@ -46,15 +53,20 @@ export function AvisoLgpd({
     }
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
-  }, [aoRecusar]);
+  }, [aoRecusar, variante]);
 
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role é dinâmico (region/dialog); os dois aceitam aria-label.
     <div
       ref={aviso}
-      role="dialog"
-      aria-modal="true"
+      role={variante === "embutido" ? "region" : "dialog"}
+      aria-modal={variante === "embutido" ? undefined : "true"}
       aria-label="Aviso de privacidade"
-      className="fixed bottom-24 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-tecnico border border-borda bg-superficie p-4"
+      className={
+        variante === "embutido"
+          ? "w-full rounded-tecnico border border-borda bg-superficie p-4"
+          : "fixed bottom-24 right-4 z-50 w-[min(24rem,calc(100vw-2rem))] rounded-tecnico border border-borda bg-superficie p-4"
+      }
     >
       <p className="text-sm">
         Esta conversa é registrada para atendimento. Veja a{" "}

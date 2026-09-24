@@ -34,7 +34,10 @@ import { Widget } from "@/components/chat/widget";
 import { PergunteAoEspecialista } from "@/components/linhas/pergunte-ao-especialista";
 import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
 
-beforeEach(() => localStorage.setItem("m10_lgpd_aceito", "1"));
+beforeEach(() => {
+  enviar.mockClear();
+  localStorage.setItem("m10_lgpd_aceito", "1");
+});
 
 describe("chat embutido", () => {
   it("pergunta pronta abre o painel dentro da seção e envia a mensagem", async () => {
@@ -134,5 +137,27 @@ describe("chat embutido", () => {
     const janela = await screen.findByRole("dialog");
     await usuario.click(within(janela).getByRole("button", { name: /fechar conversa/i }));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("botao-chat")));
+  });
+
+  it("aviso de LGPD aberto pela seção aparece dentro dela, não flutuando", async () => {
+    localStorage.removeItem("m10_lgpd_aceito");
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <PergunteAoEspecialista linha={GREEN_TURBO} />
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByRole("button", { name: "Serve para quartzito?" }));
+    const secao = screen.getByTestId("chat-embutido");
+    const aviso = await within(secao).findByRole("region", { name: /aviso de privacidade/i });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await usuario.click(within(aviso).getByRole("button", { name: /entendi/i }));
+    expect(
+      await within(secao).findByRole("region", { name: /conversa com o especialista/i }),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Serve para quartzito?", expect.anything()),
+    );
   });
 });
