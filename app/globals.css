@@ -74,3 +74,8 @@ h1, h2, h3 {
   animation: reflexo 1.4s ease-out 0.2s 1 both;
   pointer-events: none;
 }
+
+/* Chat embutido: com o painel montado no alvo, a prévia sai de cena. */
+[data-chat-alvo]:not(:empty) + [data-chat-previa] {
+  display: none;
+}

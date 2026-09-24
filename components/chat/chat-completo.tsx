@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AvisoLgpd } from "@/components/chat/aviso-lgpd";
 import { Painel } from "@/components/chat/painel";
 import { resolverTurnstile } from "@/components/chat/turnstile";
@@ -300,8 +301,9 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
       ]
     : bolhasVisiveis;
 
-  return (
+  const painel = (
     <Painel
+      variante={pedido.destino ? "embutido" : "flutuante"}
       estado={{
         ...atual,
         bolhas: comAbertura,
@@ -314,6 +316,7 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
       aoFechar={aoFechar}
     />
   );
+  return pedido.destino ? createPortal(painel, pedido.destino) : painel;
 }
 
 export default ChatCompleto;

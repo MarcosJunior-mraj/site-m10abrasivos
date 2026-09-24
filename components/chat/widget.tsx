@@ -53,6 +53,7 @@ export function Widget() {
   const [pedido, setPedido] = useState<PedidoDeAbertura | null>(null);
   const [naoLidas, setNaoLidas] = useState(0);
   const itemRef = useRef<string | null>(null);
+  const destinoRef = useRef<HTMLElement | null>(null);
   const botaoRef = useRef<HTMLButtonElement>(null);
 
   /** Fecha o painel e devolve o foco ao botão flutuante — inclusive quando o fechamento veio do Esc. */
@@ -63,6 +64,7 @@ export function Widget() {
 
   const abrir = useCallback((dados: Omit<PedidoDeAbertura, "id">) => {
     itemRef.current = dados.item;
+    destinoRef.current = dados.destino;
     setAberto(true);
     setNaoLidas(0);
     setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, ...dados }));
@@ -80,11 +82,13 @@ export function Widget() {
       const gatilho = alvo.closest<HTMLElement>("[data-abrir-chat]");
       if (!gatilho) return;
       evento.preventDefault();
+      const embutido = gatilho.closest<HTMLElement>("[data-chat-embutido]");
+      const destino = embutido?.querySelector<HTMLElement>("[data-chat-alvo]") ?? null;
       abrir({
         item: gatilho.dataset.item ?? null,
         abertura: gatilho.dataset.abertura ?? null,
         mensagem: gatilho.dataset.mensagem ?? null,
-        destino: null,
+        destino,
       });
     }
     document.addEventListener("click", aoClicar);
@@ -105,7 +109,7 @@ export function Widget() {
         // Alterna: aberto fecha sem rede nenhuma (a cota é de 200 req/dia por
         // sessão, e um clique de fechar não pode custar uma sincronização).
         onClick={() =>
-          aberto
+          aberto && !destinoRef.current
             ? fechar()
             : abrir({ item: itemRef.current, abertura: null, mensagem: null, destino: null })
         }
