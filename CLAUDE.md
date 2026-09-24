@@ -136,11 +136,17 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   `data-abrir-chat` abre o painel quando clicado (ouvido por um listener
   único em `document`, montado por `components/chat/widget.tsx`). Junto dele:
   - `data-item`: texto do contexto da linha enviado ao CRM (`pageContext.item`)
-    — ex.: `linha.ia.contexto` ("Linha Green Turbo").
-  - `data-abertura`: a fala da IA (balão) mostrada como 1ª bolha da conversa;
-    ausente/`null` quando o gatilho não carrega uma abertura (ex.: reabrir
-    pelo botão flutuante depois de uma conversa já iniciada não apaga a
-    abertura anterior se ela já foi respondida).
+    — ex.: `linha.ia.contexto` ("Linha Green Turbo"). Gatilho sem `data-item`
+    (botão do cabeçalho, botão flutuante no 1º clique) usa o contexto padrão
+    da página: o `<main data-contexto-chat="...">` da página da linha.
+  - `data-abertura`: a fala da IA (balão) mostrada como 1ª bolha da conversa
+    — **só se a conversa estiver vazia** (decidido depois de a sessão abrir e
+    trazer o histórico): o CRM só grava a nota de contexto na 1ª mensagem,
+    então numa conversa já começada a abertura é ignorada (não aparece, não
+    vai ao CRM). Pelo mesmo motivo o balão proativo não aparece para quem já
+    tem sessão salva (`lib/webchat/sessao-guardada.ts`). Ausente/`null` quando
+    o gatilho não carrega uma abertura (reabrir pelo botão flutuante não apaga
+    a abertura anterior se ela já foi respondida; se não foi, ela some).
   - `data-mensagem`: pergunta pronta enviada automaticamente assim que a
     sessão abrir (usada pelos chips de "Pergunte ao especialista").
   - Se o gatilho estiver dentro de um elemento com `[data-chat-embutido]`, o

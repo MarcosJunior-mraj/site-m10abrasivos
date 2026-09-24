@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CONFIG_PUBLICA } from "@/lib/config-publica";
 import type { Linha } from "@/lib/linhas/esquema";
 import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
+import { temSessaoGuardada } from "@/lib/webchat/sessao-guardada";
 
 function jaMostrado(chave: string): boolean {
   try {
@@ -32,6 +34,9 @@ export function BalaoProativo({ linha, esperaMs = 8000 }: { linha: Linha; espera
 
   useEffect(() => {
     if (jaMostrado(chave)) return;
+    // Quem já tem conversa salva volta a ela pelo botão do chat: a abertura do
+    // balão não entraria numa conversa já começada.
+    if (temSessaoGuardada(CONFIG_PUBLICA.webchatKey)) return;
     let feitoMostrar = false;
     const mostrar = () => {
       if (feitoMostrar) return;

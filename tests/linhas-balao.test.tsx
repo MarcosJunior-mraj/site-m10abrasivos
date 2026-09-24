@@ -2,12 +2,17 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BalaoProativo } from "@/components/linhas/balao-proativo";
+import { CONFIG_PUBLICA } from "@/lib/config-publica";
 import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
 import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
 
 let aoCruzar: ((e: { isIntersecting: boolean }[]) => void) | null = null;
+/** Onde o `ClienteWebchat` guarda a sessão (mesmo formato conferido em webchat-cliente.test.ts). */
+const CHAVE_DA_SESSAO = `webchat_token_${CONFIG_PUBLICA.webchatKey}`;
+
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.stubGlobal(
     "IntersectionObserver",
@@ -21,6 +26,7 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -74,5 +80,23 @@ describe("BalaoProativo", () => {
     expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
     act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("não aparece para quem já tem conversa salva (sessão do webchat guardada)", () => {
+    localStorage.setItem(CHAVE_DA_SESSAO, "token-existente");
+    document.body.innerHTML = '<section id="faixa-dos-graos"></section>';
+    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    act(() => aoCruzar?.([{ isIntersecting: true }]));
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("armazenamento bloqueado não derruba o balão", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("bloqueado");
+    });
+    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(10));
+    expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
   });
 });

@@ -1,4 +1,5 @@
 import { esquemaDigitando, esquemaMensagem, esquemaMensagens, esquemaSessao } from "./esquemas";
+import { chaveDaSessaoGuardada } from "./sessao-guardada";
 import type {
   Bolha,
   ContextoDaPagina,
@@ -102,7 +103,7 @@ export class ClienteWebchat {
     this.fetchImpl = deps.fetchImpl ?? fetch.bind(globalThis);
     this.criarFonte = deps.criarFonte ?? criarFonteViaEventSource;
     this.armazenamento = deps.armazenamento ?? globalThis.localStorage;
-    this.chaveGuardada = `webchat_token_${deps.chave}`;
+    this.chaveGuardada = chaveDaSessaoGuardada(deps.chave);
     this.numero = deps.numeroFallback;
     this.estado = {
       fase: "fechado",
