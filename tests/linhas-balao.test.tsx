@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BalaoProativo } from "@/components/linhas/balao-proativo";
 import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
+import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
 
 let aoCruzar: ((e: { isIntersecting: boolean }[]) => void) | null = null;
 beforeEach(() => {
@@ -51,6 +52,27 @@ describe("BalaoProativo", () => {
     unmount();
     render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
     act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("não aparece se o chat já foi aberto", () => {
+    const { unmount } = render(<BalaoProativo linha={GREEN_TURBO} esperaMs={8000} />);
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
+    act(() => vi.advanceTimersByTime(8000));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    // Remontando: sessionStorage foi marcado, não volta
+    unmount();
+    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("some quando o chat abre", () => {
+    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(10));
+    expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
+    act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
   });
 });

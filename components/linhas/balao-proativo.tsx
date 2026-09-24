@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Linha } from "@/lib/linhas/esquema";
+import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
 
 function jaMostrado(chave: string): boolean {
   try {
@@ -27,15 +28,28 @@ function marcarMostrado(chave: string): void {
 export function BalaoProativo({ linha, esperaMs = 8000 }: { linha: Linha; esperaMs?: number }) {
   const chave = `m10_balao_${linha.slug}`;
   const [visivel, setVisivel] = useState(false);
+  const apenasAParecerRef = useRef(true);
 
   useEffect(() => {
     if (jaMostrado(chave)) return;
-    let feito = false;
+    let feitoMostrar = false;
     const mostrar = () => {
-      if (feito) return;
-      feito = true;
+      if (feitoMostrar) return;
+      feitoMostrar = true;
+      apenasAParecerRef.current = false;
       marcarMostrado(chave);
       setVisivel(true);
+    };
+    const aoAbrirChat = () => {
+      if (feitoMostrar) {
+        // Chat abriu depois do balão já estar visível: esconda-o.
+        marcarMostrado(chave);
+        setVisivel(false);
+        return;
+      }
+      // Chat abriu antes do balão aparecer: marca como feito e não mostra.
+      feitoMostrar = true;
+      marcarMostrado(chave);
     };
     const relogio = setTimeout(mostrar, esperaMs);
     const faixa = document.getElementById("faixa-dos-graos");
@@ -45,9 +59,11 @@ export function BalaoProativo({ linha, esperaMs = 8000 }: { linha: Linha; espera
         })
       : null;
     if (faixa) observador?.observe(faixa);
+    window.addEventListener(EVENTO_CHAT_ABERTO, aoAbrirChat);
     return () => {
       clearTimeout(relogio);
       observador?.disconnect();
+      window.removeEventListener(EVENTO_CHAT_ABERTO, aoAbrirChat);
     };
   }, [chave, esperaMs]);
 

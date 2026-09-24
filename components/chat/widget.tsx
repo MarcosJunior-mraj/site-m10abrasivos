@@ -14,6 +14,7 @@ import type { PedidoDeAbertura } from "@/components/chat/chat-completo";
 import { PainelProvisorio } from "@/components/chat/painel-provisorio";
 import { CONFIG_PUBLICA } from "@/lib/config-publica";
 import { registrarEvento } from "@/lib/medicao";
+import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
 import { linkDoWhatsapp } from "@/lib/webchat/whatsapp";
 
 /**
@@ -69,6 +70,8 @@ export function Widget() {
     setNaoLidas(0);
     setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, ...dados }));
     registrarEvento("chat_aberto", { item: dados.item });
+    // O balão proativo escuta este evento para não aparecer se a conversa já está aberta.
+    window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO));
   }, []);
 
   const contarNaoLida = useCallback(() => setNaoLidas((quantas) => quantas + 1), []);

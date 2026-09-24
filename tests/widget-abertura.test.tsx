@@ -201,4 +201,27 @@ describe("Widget — abertura e mensagem pronta", () => {
     expect(screen.queryByText("Abertura A")).toBeNull();
     expect(screen.getByText("Abertura B")).toBeTruthy();
   });
+
+  it("dispara evento m10:chat-aberto ao abrir", async () => {
+    const usuario = userEvent.setup();
+    const eventos: Event[] = [];
+    window.addEventListener("m10:chat-aberto", (e) => eventos.push(e));
+    render(
+      <>
+        <button
+          type="button"
+          data-abrir-chat=""
+          data-item="Linha Green Turbo"
+          data-abertura="Qual pedra você está polindo hoje?"
+        >
+          balão
+        </button>
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("balão"));
+    expect(await screen.findByText("Qual pedra você está polindo hoje?")).toBeTruthy();
+    expect(eventos.length).toBe(1);
+    expect(eventos[0].type).toBe("m10:chat-aberto");
+  });
 });
