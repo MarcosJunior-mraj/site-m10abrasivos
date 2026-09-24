@@ -88,6 +88,8 @@ describe("seções da linha", () => {
     render(<SecaoNumeros linha={linha} />);
     expect(screen.getByText("2x")).toBeTruthy();
     expect(screen.getByText(/fonte: teste interno m10/i)).toBeTruthy();
+    expect(screen.getByRole("list")).toBeTruthy();
+    expect(screen.getByRole("listitem")).toBeTruthy();
   });
 
   it("dúvidas viram perguntas expansíveis, incluindo 'Trabalha com água?'", () => {

@@ -16,15 +16,15 @@ export function SecaoNumeros({ linha }: { linha: Linha }) {
         <h2 id="numeros" className="text-3xl">
           Os números
         </h2>
-        <dl className="mt-10 grid gap-6 md:grid-cols-3">
+        <ul className="mt-10 grid gap-6 md:grid-cols-3">
           {linha.numeros.map((n) => (
-            <div key={n.rotulo} className="rounded-tecnico border border-borda bg-azul p-6">
-              <dd className="font-titulo text-4xl text-laranja">{n.valor}</dd>
-              <dt className="mt-2">{n.rotulo}</dt>
+            <li key={n.rotulo} className="rounded-tecnico border border-borda bg-azul p-6">
+              <p className="font-titulo text-4xl text-laranja">{n.valor}</p>
+              <p className="mt-2">{n.rotulo}</p>
               <p className="mt-3 font-mono text-xs text-texto-secundario">Fonte: {n.fonte}</p>
-            </div>
+            </li>
           ))}
-        </dl>
+        </ul>
       </div>
     </section>
   );
