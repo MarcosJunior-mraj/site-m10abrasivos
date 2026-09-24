@@ -58,6 +58,28 @@ test("o sitemap lista os produtos", async ({ request }) => {
   expect(await resposta.text()).toContain("/produto/gt-50");
 });
 
+for (const viewport of [
+  null, // viewport padrão do projeto (desktop)
+  { width: 390, height: 844 },
+]) {
+  test(`o menu Linhas abre visível e fecha com Esc${viewport ? " (celular)" : ""}`, async ({
+    page,
+  }) => {
+    if (viewport) await page.setViewportSize(viewport);
+    await page.goto("/");
+    // A home também mostra essa categoria num cartão sempre visível (grade
+    // "Linhas M10") — o locator precisa ficar dentro do cabeçalho, senão
+    // pega os dois e o "hidden" do menu fechado nunca é satisfeito.
+    const nav = page.getByRole("navigation", { name: "Principal" });
+    const link = nav.getByRole("link", { name: "Abrasivos para poliborda" });
+    await expect(link).toBeHidden();
+    await nav.locator("summary", { hasText: "Linhas" }).click();
+    await expect(link).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(link).toBeHidden();
+  });
+}
+
 test("o cartão de item não tem altura zero (aspect-4/3 vale no navegador)", async ({ page }) => {
   await page.goto("/abrasivos-para-poliborda");
   const caixaDaImagem = page.locator('[class*="aspect-4/3"]').first();

@@ -34,6 +34,7 @@ describe("sitemap", () => {
   it("lista home, categorias, produtos e privacidade com URL absoluta", async () => {
     const urls = (await sitemap()).map((entrada) => entrada.url);
     expect(urls).toContain("https://m10abrasivos.com.br");
+    expect(urls).toContain("https://m10abrasivos.com.br/catalogo");
     expect(urls).toContain("https://m10abrasivos.com.br/poliborda");
     expect(urls).toContain("https://m10abrasivos.com.br/produto/gt-50");
     expect(urls).toContain("https://m10abrasivos.com.br/privacidade");

@@ -5,6 +5,9 @@ vi.mock("@/lib/catalog/client", () => ({
   buscarItens: vi.fn().mockResolvedValue([]),
   buscarCategorias: vi.fn().mockResolvedValue([]),
 }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
 vi.stubGlobal(
   "IntersectionObserver",
   class {

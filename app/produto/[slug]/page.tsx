@@ -62,6 +62,7 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
   const comItens = categorias.filter((categoria) =>
     todos.some((outro) => outro.category?.slug === categoria.slug),
   );
+  const linha = linhaDoProduto(item.slug);
 
   return (
     <>
@@ -95,14 +96,11 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
             <div>
               <TrilhaDoItem categoria={item.category} titulo={item.title} />
               <h1 className="mt-2 text-3xl leading-tight">{item.title}</h1>
-              {(() => {
-                const linha = linhaDoProduto(item.slug);
-                return linha ? (
-                  <div className="mt-4">
-                    <AvisoDaLinha linha={linha} />
-                  </div>
-                ) : null;
-              })()}
+              {linha ? (
+                <div className="mt-4">
+                  <AvisoDaLinha linha={linha} />
+                </div>
+              ) : null}
             </div>
             <p className="text-texto-secundario">{descricaoDoItem(item)}</p>
             <BotaoFalarComEspecialista item={item} />
