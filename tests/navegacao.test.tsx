@@ -13,7 +13,7 @@ describe("Cabecalho no celular (M4)", () => {
         ]}
       />,
     );
-    const nav = screen.getByRole("navigation", { name: "Categorias" });
+    const nav = screen.getByRole("navigation", { name: "Principal" });
     expect(nav.className).not.toMatch(/(^|\s)hidden(\s|$)/);
     expect(nav.className).toMatch(/overflow-x-auto/);
     expect(screen.getByRole("link", { name: "Discos de corte" }).getAttribute("href")).toBe(

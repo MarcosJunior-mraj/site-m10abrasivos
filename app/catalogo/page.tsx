@@ -1,21 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CartaoItem } from "@/components/catalogo/cartao-item";
-import { EscalaDeRugosidade } from "@/components/catalogo/escala-de-rugosidade";
 import { Cabecalho } from "@/components/layout/cabecalho";
-import { ComoFunciona } from "@/components/secoes/como-funciona";
-import { DestaqueDaLinha } from "@/components/secoes/destaque-da-linha";
-import { Hero } from "@/components/secoes/hero";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
-import { linhasPublicadas } from "@/lib/linhas";
 
-export default async function Home() {
+export const metadata: Metadata = { title: "Catálogo" };
+
+export default async function Catalogo() {
   const [itens, categorias] = await Promise.all([buscarItens(), buscarCategorias()]);
-
-  const linhas = linhasPublicadas();
-  const principal = linhas[0];
-  const categoriaDaLinha = new Map(
-    linhas.flatMap((l) => (l.categoriaSlug ? [[l.categoriaSlug, l] as const] : [])),
-  );
 
   // Categoria sem item publicado não vira cartão: link para vitrine vazia é pior do que link nenhum.
   const comItens = categorias.filter((categoria) =>
@@ -29,8 +21,7 @@ export default async function Home() {
     <>
       <Cabecalho categorias={comItens.map((c) => ({ nome: c.name, slug: c.slug }))} />
       <main>
-        {principal ? <DestaqueDaLinha linha={principal} /> : <Hero />}
-        <EscalaDeRugosidade itens={itens} />
+        <h1 className="mx-auto max-w-6xl px-4 pt-12 text-4xl">Catálogo</h1>
 
         {comItens.length > 0 || kits.length > 0 ? (
           <section aria-labelledby="linhas" className="mx-auto max-w-6xl px-4 py-16">
@@ -39,11 +30,7 @@ export default async function Home() {
               {comItens.map((categoria) => (
                 <Link
                   key={categoria.slug}
-                  href={
-                    categoriaDaLinha.get(categoria.slug)
-                      ? `/linhas/${categoriaDaLinha.get(categoria.slug)?.slug}`
-                      : `/${categoria.slug}`
-                  }
+                  href={`/${categoria.slug}`}
                   className="flex flex-col justify-between gap-6 rounded-tecnico border border-borda bg-superficie p-6 hover:border-laranja"
                 >
                   <h3 className="text-xl">{categoria.name}</h3>
@@ -69,8 +56,6 @@ export default async function Home() {
             </div>
           </section>
         ) : null}
-
-        <ComoFunciona />
       </main>
     </>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { AvisoDaLinha } from "@/components/catalogo/aviso-da-linha";
 import { BotaoFalarComEspecialista } from "@/components/catalogo/botao-falar-com-especialista";
 import { CartaoItem } from "@/components/catalogo/cartao-item";
 import { ComposicaoDoKit } from "@/components/catalogo/composicao-do-kit";
@@ -11,6 +12,7 @@ import { descricaoDoItem, textoDeSeo } from "@/lib/catalog/apresentacao";
 import { buscarCategorias, buscarItem, buscarItens } from "@/lib/catalog/client";
 import { temImagem, urlDaImagem } from "@/lib/catalog/imagens";
 import { lerConfigServidor } from "@/lib/config";
+import { linhaDoProduto } from "@/lib/linhas";
 import { dadosEstruturadosJson } from "./dados-estruturados";
 
 export const dynamicParams = true;
@@ -93,6 +95,14 @@ export default async function PaginaDeProduto({ params }: { params: Promise<{ sl
             <div>
               <TrilhaDoItem categoria={item.category} titulo={item.title} />
               <h1 className="mt-2 text-3xl leading-tight">{item.title}</h1>
+              {(() => {
+                const linha = linhaDoProduto(item.slug);
+                return linha ? (
+                  <div className="mt-4">
+                    <AvisoDaLinha linha={linha} />
+                  </div>
+                ) : null;
+              })()}
             </div>
             <p className="text-texto-secundario">{descricaoDoItem(item)}</p>
             <BotaoFalarComEspecialista item={item} />
