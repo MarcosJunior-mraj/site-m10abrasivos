@@ -41,7 +41,8 @@ describe("SecaoOferta", () => {
       item("abrasivo-m10-green-turbo-100", "Green Turbo #100"),
     ]);
     render(await SecaoOferta({ linha: GREEN_TURBO }));
-    expect(screen.getByRole("heading", { name: /kit green turbo para poliborda/i })).toBeTruthy();
+    // Spec 5.3: o título da oferta é o nome do kit no catálogo (sempre atual).
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Kit GT para Poliborda");
     expect(screen.getByRole("link", { name: /green turbo #50/i })).toBeTruthy();
     expect(screen.getByRole("link", { name: /green turbo #100/i })).toBeTruthy();
     expect(screen.queryByRole("link", { name: /#3000/ })).toBeNull();
@@ -55,5 +56,27 @@ describe("SecaoOferta", () => {
     render(await SecaoOferta({ linha: GREEN_TURBO }));
     const cta = screen.getByRole("button", { name: /monte sua sequência com o especialista/i });
     expect(cta.getAttribute("data-mensagem")).toBeNull();
+  });
+
+  it("kit no catálogo sem título: cai para o título da oferta da linha", async () => {
+    lista.mockResolvedValue([item("kit-gt-para-poliborda", "  ", "kit")]);
+    render(await SecaoOferta({ linha: GREEN_TURBO }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe(GREEN_TURBO.oferta.titulo);
+  });
+
+  it("reposição é um h3 e os cartões dos avulsos ficam um nível abaixo (h4)", async () => {
+    lista.mockResolvedValue([
+      item("kit-gt-para-poliborda", "Kit GT para Poliborda", "kit"),
+      item("abrasivo-m10-green-turbo-50", "Green Turbo #50"),
+      item("abrasivo-m10-green-turbo-100", "Green Turbo #100"),
+    ]);
+    render(await SecaoOferta({ linha: GREEN_TURBO }));
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "Reposição: grãos avulsos",
+    ]);
+    expect(screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)).toEqual([
+      "Green Turbo #50",
+      "Green Turbo #100",
+    ]);
   });
 });
