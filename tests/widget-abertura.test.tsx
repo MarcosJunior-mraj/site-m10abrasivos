@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const enviar = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/webchat/cliente", () => ({
@@ -32,9 +32,16 @@ vi.mock("@/components/chat/turnstile", () => ({
 
 import { Widget } from "@/components/chat/widget";
 
+/** Ouvintes que um teste pendura em `window`: saem no `afterEach`, sem vazar para o próximo. */
+const limpezas: Array<() => void> = [];
+
 beforeEach(() => {
   enviar.mockClear();
   localStorage.setItem("m10_lgpd_aceito", "1");
+});
+
+afterEach(() => {
+  for (const limpar of limpezas.splice(0)) limpar();
 });
 
 describe("Widget — abertura e mensagem pronta", () => {
@@ -205,7 +212,9 @@ describe("Widget — abertura e mensagem pronta", () => {
   it("dispara evento m10:chat-aberto ao abrir", async () => {
     const usuario = userEvent.setup();
     const eventos: Event[] = [];
-    window.addEventListener("m10:chat-aberto", (e) => eventos.push(e));
+    const anotar = (e: Event) => eventos.push(e);
+    window.addEventListener("m10:chat-aberto", anotar);
+    limpezas.push(() => window.removeEventListener("m10:chat-aberto", anotar));
     render(
       <>
         <button
