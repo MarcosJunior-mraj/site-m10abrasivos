@@ -81,28 +81,32 @@ export function BalaoProativo({
     };
   }, [chave, esperaMs]);
 
-  if (!visivel) return null;
-
+  // A região viva existe sempre (vazia até o balão aparecer): leitor de tela
+  // só anuncia mudança numa região já montada. Anuncia sem mover o foco.
   return (
-    <div className="fixed right-4 bottom-24 z-40 flex max-w-[16rem] items-start gap-2 rounded-tecnico rounded-br-none bg-texto p-3 text-azul shadow-2xl md:max-w-xs">
-      <button
-        type="button"
-        data-abrir-chat=""
-        data-item={ia.contexto}
-        data-abertura={ia.balao}
-        onClick={() => setVisivel(false)}
-        className="text-left text-sm font-semibold"
-      >
-        {ia.balao}
-      </button>
-      <button
-        type="button"
-        aria-label="Fechar sugestão"
-        onClick={() => setVisivel(false)}
-        className="min-h-6 min-w-6 text-azul/60"
-      >
-        ✕
-      </button>
+    <div role="status" aria-live="polite">
+      {visivel ? (
+        <div className="fixed right-4 bottom-24 z-40 flex max-w-[16rem] items-start gap-2 rounded-tecnico rounded-br-none bg-texto p-3 text-azul shadow-2xl md:max-w-xs">
+          <button
+            type="button"
+            data-abrir-chat=""
+            data-item={ia.contexto}
+            data-abertura={ia.balao}
+            onClick={() => setVisivel(false)}
+            className="text-left text-sm font-semibold"
+          >
+            {ia.balao}
+          </button>
+          <button
+            type="button"
+            aria-label="Fechar sugestão"
+            onClick={() => setVisivel(false)}
+            className="min-h-6 min-w-6 text-azul/60"
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

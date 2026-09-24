@@ -103,4 +103,15 @@ describe("BalaoProativo", () => {
     act(() => vi.advanceTimersByTime(10));
     expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
   });
+
+  it("é anunciado por uma região viva educada, sem roubar o foco", () => {
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    // A região existe desde o início (vazia): leitor de tela só anuncia mudança numa região já montada.
+    const regiao = screen.getByRole("status");
+    expect(regiao.getAttribute("aria-live")).toBe("polite");
+    expect(regiao.textContent).toBe("");
+    act(() => vi.advanceTimersByTime(10));
+    expect(regiao.contains(screen.getByRole("button", { name: GREEN_TURBO.ia.balao }))).toBe(true);
+    expect(document.activeElement).toBe(document.body);
+  });
 });
