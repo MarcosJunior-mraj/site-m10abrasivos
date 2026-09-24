@@ -116,6 +116,13 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   `urlDaMidia()` (`lib/midia.ts`) monta a URL final prefixando
   `NEXT_PUBLIC_MIDIA_URL` (base pública do bucket `site-midia`). Trocar de
   serviço de hospedagem de mídia não exige tocar no conteúdo das linhas.
+- **Convenção de nome do vídeo do topo**: o arquivo do vídeo do herói (`topo`,
+  above the fold) precisa ter `"topo"` no caminho (ex.:
+  `"green-turbo/topo-celular.mp4"`) — é por esse pedaço do caminho que o teste
+  e2e (`tests/e2e/linha.spec.ts`, "vídeos de seção não baixam antes da hora")
+  distingue o vídeo que deve mesmo carregar já na entrada (prioridade, sem
+  esperar rolagem) dos vídeos das demais seções, que só devem baixar quando a
+  seção entra na tela.
 - **"Nada inventado"**: `esquemaDepoimento` exige `autorizado: z.literal(true)`
   (depoimento só entra com autorização registrada) e `esquemaNumero` exige o
   campo `fonte` em todo número exibido (`lib/linhas/esquema.ts`). Um depoimento

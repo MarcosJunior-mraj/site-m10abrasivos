@@ -50,7 +50,13 @@ test("balão: uma vez por visita, e leva a pergunta como abertura", async ({ pag
     .poll(async () => (await (await request.get(`${CRM}/_ultimo_contexto`)).json()).data?.abertura)
     .toBe("Qual pedra você está polindo hoje na poliborda?");
   await page.reload();
-  await page.waitForTimeout(9000);
+  // Gatilho imediato do balão (a faixa entrando na tela) em vez de esperar os 8 s
+  // do temporizador: se o balão reaparecesse depois de já mostrado nesta sessão,
+  // seria por este caminho que reapareceria mais rápido.
+  await page.getByRole("heading", { name: /saia do fosco/i }).scrollIntoViewIfNeeded();
+  // Espera curta para o IntersectionObserver processar a entrada na tela (não há
+  // rede envolvida, só o tempo do observer entregar a entrada e o React montar).
+  await page.waitForTimeout(500);
   await expect(
     page.getByRole("button", { name: "Qual pedra você está polindo hoje na poliborda?" }),
   ).toHaveCount(0);
@@ -83,7 +89,14 @@ test("vídeos de seção não baixam antes da hora", async ({ page }) => {
     if (r.url().endsWith(".mp4")) videos.push(r.url());
   });
   await page.goto("/linhas/green-turbo");
-  expect(videos).toEqual([]);
+  await page.waitForLoadState("networkidle");
+  // Convenção: o vídeo do topo (herói, above the fold) tem "topo" no caminho do
+  // arquivo (ex.: green-turbo/topo-celular.mp4) e carrega de propósito já na
+  // carga da página (prioridade, sem espera por rolagem) — por isso é ignorado
+  // aqui. O caso positivo (rolar até outra seção → o vídeo dela carrega) entra
+  // na Fase 2, quando existir mídia de verdade nas demais seções.
+  const foraDoTopo = videos.filter((url) => !url.includes("/topo"));
+  expect(foraDoTopo).toEqual([]);
 });
 
 test("rotas antigas continuam no ar", async ({ page }) => {
