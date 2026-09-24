@@ -28,7 +28,8 @@ export type EstadoDoChat = {
   aviso: string | null;
 };
 
-export type ContextoDaPagina = { url: string; item: string | null };
+/** `abertura`: a pergunta que o site mostrou em nome da IA (balão) — o CRM a registra na nota de contexto. */
+export type ContextoDaPagina = { url: string; item: string | null; abertura: string | null };
 
 /** O que o cliente precisa de um `EventSource` — só isto, para o teste poder fingir. */
 export interface FonteDeEventos {

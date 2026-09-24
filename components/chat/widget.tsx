@@ -60,11 +60,11 @@ export function Widget() {
     botaoRef.current?.focus();
   }, []);
 
-  const abrir = useCallback((item: string | null) => {
-    itemRef.current = item;
+  const abrir = useCallback((dados: Omit<PedidoDeAbertura, "id">) => {
+    itemRef.current = dados.item;
     setAberto(true);
     setNaoLidas(0);
-    setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, item }));
+    setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, ...dados }));
   }, []);
 
   const contarNaoLida = useCallback(() => setNaoLidas((quantas) => quantas + 1), []);
@@ -78,7 +78,12 @@ export function Widget() {
       const gatilho = alvo.closest<HTMLElement>("[data-abrir-chat]");
       if (!gatilho) return;
       evento.preventDefault();
-      abrir(gatilho.dataset.item ?? null);
+      abrir({
+        item: gatilho.dataset.item ?? null,
+        abertura: gatilho.dataset.abertura ?? null,
+        mensagem: gatilho.dataset.mensagem ?? null,
+        destino: null,
+      });
     }
     document.addEventListener("click", aoClicar);
     return () => document.removeEventListener("click", aoClicar);
@@ -97,7 +102,11 @@ export function Widget() {
         data-testid="botao-chat"
         // Alterna: aberto fecha sem rede nenhuma (a cota é de 200 req/dia por
         // sessão, e um clique de fechar não pode custar uma sincronização).
-        onClick={() => (aberto ? fechar() : abrir(itemRef.current))}
+        onClick={() =>
+          aberto
+            ? fechar()
+            : abrir({ item: itemRef.current, abertura: null, mensagem: null, destino: null })
+        }
         aria-expanded={aberto}
         className="fixed bottom-4 right-4 z-50 min-h-14 rounded-tecnico bg-laranja px-5 font-semibold text-azul shadow-lg"
       >

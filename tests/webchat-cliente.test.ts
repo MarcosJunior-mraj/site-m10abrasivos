@@ -238,6 +238,7 @@ describe("envio", () => {
     await cliente.enviar("Preciso de disco para quartzito", {
       url: "https://site/produto/gt-50",
       item: "GT #50",
+      abertura: null,
     });
 
     const corpo = JSON.parse(String(chamadas[1]?.init.body)) as {
@@ -271,7 +272,7 @@ describe("envio", () => {
     ]);
     await cliente.abrir();
 
-    await cliente.enviar("oi", { url: "https://site", item: null });
+    await cliente.enviar("oi", { url: "https://site", item: null, abertura: null });
 
     expect(chamadas).toHaveLength(2);
     expect(cliente.estado.aviso).toMatch(/30 s|aguarde/i);
@@ -286,7 +287,7 @@ describe("envio", () => {
     ]);
     await cliente.abrir();
 
-    await cliente.enviar("oi", { url: "https://site", item: null });
+    await cliente.enviar("oi", { url: "https://site", item: null, abertura: null });
 
     expect(cliente.estado.aviso).toMatch(/envie a mensagem de novo/i);
     expect(cliente.estado.bolhas.at(-1)?.situacao).toBe("falhou");
@@ -295,7 +296,7 @@ describe("envio", () => {
   it("o envio tem tempo limite", async () => {
     const { cliente, chamadas } = montar([json(SESSAO_OK), json({ data: { ok: true } }, 202)]);
     await cliente.abrir();
-    await cliente.enviar("oi", { url: "https://site", item: null });
+    await cliente.enviar("oi", { url: "https://site", item: null, abertura: null });
     expect(chamadas[1]?.init.signal).toBeInstanceOf(AbortSignal);
   });
 
@@ -303,8 +304,8 @@ describe("envio", () => {
     const { cliente, chamadas } = montar([json(SESSAO_OK)]);
     await cliente.abrir();
 
-    await cliente.enviar("   ", { url: "https://site", item: null });
-    await cliente.enviar("x".repeat(1001), { url: "https://site", item: null });
+    await cliente.enviar("   ", { url: "https://site", item: null, abertura: null });
+    await cliente.enviar("x".repeat(1001), { url: "https://site", item: null, abertura: null });
 
     expect(chamadas).toHaveLength(1);
     expect(cliente.estado.aviso).toMatch(/1000/);

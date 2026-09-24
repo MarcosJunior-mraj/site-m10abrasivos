@@ -42,7 +42,16 @@ function leu(chave: string): string | null {
 }
 
 /** Cada clique que abre o painel gera um pedido novo (o `id` muda), mesmo com o mesmo item. */
-export type PedidoDeAbertura = { id: number; item: string | null };
+export type PedidoDeAbertura = {
+  id: number;
+  item: string | null;
+  /** Fala da IA mostrada pelo site (balão); vira a 1ª bolha e segue no contexto. */
+  abertura: string | null;
+  /** Pergunta pronta: enviada sozinha assim que a sessão estiver pronta. */
+  mensagem: string | null;
+  /** Onde mostrar o painel dentro da página (chat embutido); `null` = flutuante. */
+  destino: HTMLElement | null;
+};
 
 export type PropsDoChatCompleto = {
   aberto: boolean;
@@ -74,6 +83,9 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   const clienteRef = useRef<ClienteWebchat | null>(null);
   const enfileiradasRef = useRef(0);
   const itemRef = useRef<string | null>(null);
+  const aberturaRef = useRef<string | null>(null);
+  const [abertura, setAbertura] = useState<string | null>(null);
+  const mensagemPendenteRef = useRef<string | null>(null);
   const contingenciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desligarRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Só `true` quando o timer de 60 s de fato desligou o fluxo: é o que autoriza religar ao voltar. */
@@ -130,6 +142,30 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     return cliente;
   }, []);
 
+  const enviar = useCallback(
+    async (texto: string) => {
+      const cliente = garantirCliente();
+      await cliente.enviar(texto, {
+        url: location.href,
+        item: itemRef.current,
+        abertura: aberturaRef.current,
+      });
+      if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
+      contingenciaRef.current = setTimeout(() => {
+        setContingenciaAtiva(true);
+      }, ESPERA_MAXIMA_MS);
+    },
+    [garantirCliente],
+  );
+
+  /** Pergunta pronta do clique: vai uma vez só, quando já há sessão. */
+  const despacharPendente = useCallback(() => {
+    const texto = mensagemPendenteRef.current;
+    if (!texto) return;
+    mensagemPendenteRef.current = null;
+    void enviar(texto);
+  }, [enviar]);
+
   const iniciar = useCallback(async () => {
     const cliente = garantirCliente();
     try {
@@ -142,22 +178,28 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
       // um cliente que ninguém mais escuta.
       if (clienteRef.current !== cliente) return;
       cliente.conectar();
+      despacharPendente();
     } catch {
       cliente.cairParaWhatsapp(AVISO_FALHA_NA_ABERTURA);
     }
-  }, [garantirCliente]);
+  }, [garantirCliente, despacharPendente]);
 
   // Cada pedido de abertura vindo do botão (ou de um `data-abrir-chat`).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reage só a um pedido NOVO (o `id`); o item viaja junto.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reage só a um pedido NOVO (o `id`); item, abertura e mensagem viajam junto.
   useEffect(() => {
     itemRef.current = pedido.item;
+    if (pedido.abertura) {
+      aberturaRef.current = pedido.abertura;
+      setAbertura(pedido.abertura);
+    }
+    mensagemPendenteRef.current = pedido.mensagem;
     if (!leu(CHAVE_LGPD)) {
       setPrecisaAceitar(true);
       return;
     }
     if (!clienteRef.current) void iniciar();
-    else void clienteRef.current.sincronizar();
-  }, [pedido.id, iniciar]);
+    else void clienteRef.current.sincronizar().then(() => despacharPendente());
+  }, [pedido.id, iniciar, despacharPendente]);
 
   // Aba escondida por mais de um minuto: fecha o fluxo. Ao voltar, sincroniza e
   // reconecta — SÓ se o fluxo foi mesmo desligado. Aba escondida por menos
@@ -210,15 +252,6 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     };
   }, []);
 
-  async function enviar(texto: string) {
-    const cliente = garantirCliente();
-    await cliente.enviar(texto, { url: location.href, item: itemRef.current });
-    if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
-    contingenciaRef.current = setTimeout(() => {
-      setContingenciaAtiva(true);
-    }, ESPERA_MAXIMA_MS);
-  }
-
   if (!aberto) return null;
 
   if (precisaAceitar) {
@@ -239,12 +272,26 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   }
 
   const atual = estado ?? ESTADO_ABRINDO;
+  const bolhasVisiveis = atual.bolhas.slice(0, visiveis);
+  // A abertura mostrada pelo site (balão) vira a 1ª bolha da IA — sintética,
+  // nunca vai para o núcleo nem conta como mensagem do cliente.
+  const comAbertura = abertura
+    ? [
+        {
+          id: "abertura",
+          de: "especialista" as const,
+          texto: abertura,
+          situacao: "entregue" as const,
+        },
+        ...bolhasVisiveis,
+      ]
+    : bolhasVisiveis;
 
   return (
     <Painel
       estado={{
         ...atual,
-        bolhas: atual.bolhas.slice(0, visiveis),
+        bolhas: comAbertura,
         // Combinadas só na hora de renderizar: a contingência é estado do
         // widget, nunca escrito dentro do `estado` que veio do núcleo.
         ofereceuWhatsapp: atual.ofereceuWhatsapp || contingenciaAtiva,
