@@ -1,6 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const registro = vi.hoisted(() => ({ linhas: [] as import("@/lib/linhas").Linha[] }));
+vi.mock("@/lib/linhas", async (importOriginal) => {
+  const { registroCom } = await import("./duplos/registro-de-linhas");
+  return registroCom(await importOriginal(), () => registro.linhas);
+});
+
 vi.mock("@/lib/catalog/client", () => ({
   buscarItens: vi.fn().mockResolvedValue([]),
   buscarCategorias: vi.fn().mockResolvedValue([]),
@@ -21,13 +27,16 @@ vi.stubGlobal(
 vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }));
 
 import { dadosEstruturadosDaLinha } from "@/app/linhas/[linha]/dados-estruturados";
-import PaginaDaLinha, { generateMetadata } from "@/app/linhas/[linha]/page";
+import PaginaDaLinha, { generateMetadata, generateStaticParams } from "@/app/linhas/[linha]/page";
 import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
 import { ehSlugReservado } from "@/lib/rotas";
 
 const params = (linha: string) => ({ params: Promise.resolve({ linha }) });
+const RASCUNHO = { ...GREEN_TURBO, rascunho: true };
+const PUBLICADA = { ...GREEN_TURBO, rascunho: false };
 
 beforeEach(() => {
+  registro.linhas = [RASCUNHO];
   vi.stubEnv("SITE_URL", "https://m10abrasivos.com.br");
   vi.stubEnv("CRM_URL", "https://crm.exemplo");
   vi.stubEnv("CATALOG_KEY", "m10cat_x");
@@ -41,6 +50,17 @@ describe("página da linha", () => {
   it("rascunho sem MOSTRAR_RASCUNHOS é 404", async () => {
     vi.stubEnv("MOSTRAR_RASCUNHOS", "");
     await expect(PaginaDaLinha(params("green-turbo"))).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(generateStaticParams()).toEqual([]);
+  });
+
+  it("publicada abre sem MOSTRAR_RASCUNHOS, indexável", async () => {
+    registro.linhas = [PUBLICADA];
+    vi.stubEnv("MOSTRAR_RASCUNHOS", "");
+    expect(generateStaticParams()).toEqual([{ linha: "green-turbo" }]);
+    render(await PaginaDaLinha(params("green-turbo")));
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    const meta = await generateMetadata(params("green-turbo"));
+    expect(meta.robots).toBeUndefined();
   });
 
   it("linha inexistente é 404", async () => {

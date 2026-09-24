@@ -63,7 +63,7 @@ describe("FaixaDosGraos", () => {
   });
 
   it("sem foto: marcador no rascunho; publicada fica só com a barra", () => {
-    const { rerender } = render(<FaixaDosGraos linha={GREEN_TURBO} />);
+    const { rerender } = render(<FaixaDosGraos linha={{ ...GREEN_TURBO, rascunho: true }} />);
     expect(screen.getByText(/aguardando material: foto do brilho espelhado/i)).toBeTruthy();
     rerender(<FaixaDosGraos linha={{ ...GREEN_TURBO, rascunho: false }} />);
     expect(screen.queryByTestId("foto-espelhado")).toBeNull();

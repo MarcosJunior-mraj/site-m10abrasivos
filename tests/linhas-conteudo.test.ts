@@ -4,6 +4,7 @@ import {
   buscarLinha,
   linhaDoProduto,
   linhasPublicadas,
+  linhasVisiveis,
   podeMostrar,
   TODAS_AS_LINHAS,
 } from "@/lib/linhas";
@@ -56,9 +57,9 @@ describe("conteúdo das linhas", () => {
     expect(esquemaLinha.safeParse(quebrada).success).toBe(false);
   });
 
-  it("piloto: Green Turbo, rascunho, com os 7 grãos e o kit do catálogo", () => {
+  // Não fixa `rascunho`: publicar o piloto (rascunho: false) não pode quebrar este teste.
+  it("piloto: Green Turbo, com os 7 grãos e o kit do catálogo", () => {
     expect(GREEN_TURBO.slug).toBe("green-turbo");
-    expect(GREEN_TURBO.rascunho).toBe(true);
     expect(GREEN_TURBO.ia.contexto).toBe("Linha Green Turbo");
     expect(GREEN_TURBO.faixa.graos).toEqual([
       "#50",
@@ -81,18 +82,38 @@ describe("conteúdo das linhas", () => {
 });
 
 describe("registro de linhas", () => {
+  // Listas próprias (fixtures): o registro é testado sem depender de o piloto
+  // estar ou não em rascunho hoje.
+  const RASCUNHO = { ...GREEN_TURBO, rascunho: true };
+  const PUBLICADA = { ...GREEN_TURBO, rascunho: false };
+
+  it("o registro real contém o piloto", () => {
+    expect(TODAS_AS_LINHAS.map((l) => l.slug)).toContain("green-turbo");
+    expect(buscarLinha("green-turbo")?.nome).toBe("Green Turbo");
+  });
+
   it("rascunho só aparece com MOSTRAR_RASCUNHOS=1", () => {
-    expect(podeMostrar(GREEN_TURBO, {})).toBe(false);
-    expect(podeMostrar(GREEN_TURBO, { MOSTRAR_RASCUNHOS: "1" })).toBe(true);
-    expect(podeMostrar({ ...GREEN_TURBO, rascunho: false }, {})).toBe(true);
+    expect(podeMostrar(RASCUNHO, {})).toBe(false);
+    expect(podeMostrar(RASCUNHO, { MOSTRAR_RASCUNHOS: "1" })).toBe(true);
+    expect(podeMostrar(PUBLICADA, {})).toBe(true);
+    expect(linhasVisiveis({}, [RASCUNHO])).toEqual([]);
+    expect(linhasVisiveis({ MOSTRAR_RASCUNHOS: "1" }, [RASCUNHO])).toEqual([RASCUNHO]);
+    expect(linhasVisiveis({}, [PUBLICADA])).toEqual([PUBLICADA]);
   });
 
   it("busca por slug e não lista rascunho como publicada", () => {
-    expect(buscarLinha("green-turbo")?.nome).toBe("Green Turbo");
-    expect(buscarLinha("nao-existe")).toBeNull();
-    expect(linhasPublicadas().some((l) => l.slug === "green-turbo")).toBe(false);
-    // Enquanto o piloto é rascunho, nenhum produto aponta para a página de vendas.
-    expect(linhaDoProduto("abrasivo-m10-green-turbo-50")).toBeNull();
+    expect(buscarLinha("green-turbo", [RASCUNHO])?.nome).toBe("Green Turbo");
+    expect(buscarLinha("nao-existe", [RASCUNHO])).toBeNull();
+    expect(linhasPublicadas([RASCUNHO])).toEqual([]);
+    expect(linhasPublicadas([PUBLICADA])).toEqual([PUBLICADA]);
+  });
+
+  it("produto aponta para a página de vendas só quando a linha está publicada", () => {
+    // Rascunho: nenhum produto aponta para a página de vendas.
+    expect(linhaDoProduto("abrasivo-m10-green-turbo-50", [RASCUNHO])).toBeNull();
+    expect(linhaDoProduto("abrasivo-m10-green-turbo-50", [PUBLICADA])?.slug).toBe("green-turbo");
+    expect(linhaDoProduto("kit-gt-para-poliborda", [PUBLICADA])?.slug).toBe("green-turbo");
+    expect(linhaDoProduto("outro-item", [PUBLICADA])).toBeNull();
   });
 
   it("urlDaMidia junta a base pública do bucket sem barra dupla", () => {

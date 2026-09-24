@@ -6,8 +6,17 @@ export const TODAS_AS_LINHAS: readonly Linha[] = [GREEN_TURBO].map((linha) =>
   esquemaLinha.parse(linha),
 );
 
-export function buscarLinha(slug: string): Linha | null {
-  return TODAS_AS_LINHAS.find((linha) => linha.slug === slug) ?? null;
+/*
+ * `linhas` é opcional em todo o registro: a página usa sempre `TODAS_AS_LINHAS`;
+ * os testes passam uma lista própria (ex.: `{ ...GREEN_TURBO, rascunho: true }`)
+ * para não depender do estado atual de rascunho do conteúdo.
+ */
+
+export function buscarLinha(
+  slug: string,
+  linhas: readonly Linha[] = TODAS_AS_LINHAS,
+): Linha | null {
+  return linhas.find((linha) => linha.slug === slug) ?? null;
 }
 
 export function podeMostrar(
@@ -17,19 +26,25 @@ export function podeMostrar(
   return !linha.rascunho || env.MOSTRAR_RASCUNHOS === "1";
 }
 
-export function linhasVisiveis(env: Record<string, string | undefined> = process.env): Linha[] {
-  return TODAS_AS_LINHAS.filter((linha) => podeMostrar(linha, env));
+export function linhasVisiveis(
+  env: Record<string, string | undefined> = process.env,
+  linhas: readonly Linha[] = TODAS_AS_LINHAS,
+): Linha[] {
+  return linhas.filter((linha) => podeMostrar(linha, env));
 }
 
 /** Home, menu e sitemap: só linha publicada, independentemente de env. */
-export function linhasPublicadas(): Linha[] {
-  return TODAS_AS_LINHAS.filter((linha) => !linha.rascunho);
+export function linhasPublicadas(linhas: readonly Linha[] = TODAS_AS_LINHAS): Linha[] {
+  return linhas.filter((linha) => !linha.rascunho);
 }
 
 /** Linha publicada cuja oferta inclui este item (kit ou avulso). */
-export function linhaDoProduto(slugDoItem: string): Linha | null {
+export function linhaDoProduto(
+  slugDoItem: string,
+  linhas: readonly Linha[] = TODAS_AS_LINHAS,
+): Linha | null {
   return (
-    linhasPublicadas().find(
+    linhasPublicadas(linhas).find(
       (linha) =>
         linha.oferta.kitSlug === slugDoItem || linha.oferta.avulsosSlugs.includes(slugDoItem),
     ) ?? null

@@ -19,6 +19,8 @@ vi.stubGlobal(
 vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }));
 
 const PUBLICADA = { ...GREEN_TURBO, rascunho: false };
+/** Fixo em rascunho: o teste não depende do estado atual do piloto. */
+const RASCUNHO = { ...GREEN_TURBO, rascunho: true };
 
 describe("seções da linha", () => {
   it("topo: título como h1 e CTA que abre o chat com o contexto da linha", () => {
@@ -30,7 +32,7 @@ describe("seções da linha", () => {
   });
 
   it("topo sem vídeo: rascunho mostra o marcador; publicada não mostra", () => {
-    const { rerender } = render(<SecaoTopo linha={GREEN_TURBO} />);
+    const { rerender } = render(<SecaoTopo linha={RASCUNHO} />);
     expect(screen.getByText(/aguardando material: vídeo do topo/i)).toBeTruthy();
     rerender(<SecaoTopo linha={PUBLICADA} />);
     expect(screen.queryByText(/aguardando material/i)).toBeNull();
@@ -50,7 +52,7 @@ describe("seções da linha", () => {
   });
 
   it("razões: as quatro, com marcador de vídeo só no rascunho", () => {
-    const { rerender } = render(<SecaoRazoes linha={GREEN_TURBO} />);
+    const { rerender } = render(<SecaoRazoes linha={RASCUNHO} />);
     expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "Brilho espelhado",
       "Velocidade na produção",
@@ -72,8 +74,8 @@ describe("seções da linha", () => {
     expect(container.innerHTML).toBe("");
     render(
       <>
-        <SecaoDepoimentos linha={GREEN_TURBO} />
-        <SecaoNumeros linha={GREEN_TURBO} />
+        <SecaoDepoimentos linha={RASCUNHO} />
+        <SecaoNumeros linha={RASCUNHO} />
       </>,
     );
     expect(screen.getByText(/aguardando material: depoimentos/i)).toBeTruthy();

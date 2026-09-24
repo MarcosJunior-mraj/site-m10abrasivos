@@ -1,5 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const registro = vi.hoisted(() => ({ linhas: [] as import("@/lib/linhas").Linha[] }));
+vi.mock("@/lib/linhas", async (importOriginal) => {
+  const { registroCom } = await import("./duplos/registro-de-linhas");
+  return registroCom(await importOriginal(), () => registro.linhas);
+});
 
 vi.mock("@/lib/catalog/client", () => ({
   buscarItens: vi.fn().mockResolvedValue([]),
@@ -23,6 +29,11 @@ import { DestaqueDaLinha } from "@/components/secoes/destaque-da-linha";
 import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
 
 const PUBLICADA = { ...GREEN_TURBO, rascunho: false };
+const RASCUNHO = { ...GREEN_TURBO, rascunho: true };
+
+beforeEach(() => {
+  registro.linhas = [RASCUNHO];
+});
 
 describe("navegação por linhas", () => {
   it("cabeçalho tem Catálogo e o botão do especialista", () => {
@@ -37,8 +48,17 @@ describe("navegação por linhas", () => {
   });
 
   it("enquanto o Green Turbo é rascunho, o menu não mostra a página de vendas", () => {
+    registro.linhas = [RASCUNHO];
     render(<Cabecalho categorias={[]} />);
     expect(screen.queryByRole("link", { name: /green turbo/i })).toBeNull();
+  });
+
+  it("publicada, o menu leva à página de vendas da linha", () => {
+    registro.linhas = [PUBLICADA];
+    render(<Cabecalho categorias={[]} />);
+    expect(screen.getByRole("link", { name: /green turbo/i }).getAttribute("href")).toBe(
+      "/linhas/green-turbo",
+    );
   });
 
   it("destaque da home leva à página da linha", () => {
