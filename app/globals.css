@@ -59,3 +59,18 @@ h1, h2, h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Faixa dos grãos: reflexo de luz que passa uma vez pela foto do espelhado. */
+@keyframes reflexo {
+  from { transform: translateX(-120%) skewX(-20deg); }
+  to { transform: translateX(220%) skewX(-20deg); }
+}
+.reflexo::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  animation: reflexo 1.4s ease-out 0.2s 1 both;
+  pointer-events: none;
+}
