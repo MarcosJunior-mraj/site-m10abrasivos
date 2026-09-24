@@ -7,3 +7,6 @@ playwright-report/
 test-results/
 next-env.d.ts
 lighthouse-*.json
+
+# protótipos e ledgers locais do brainstorming/SDD
+.superpowers/
