@@ -6,6 +6,8 @@ export const RESERVADOS = new Set([
   "imagens",
   "sitemap.xml",
   "robots.txt",
+  "linhas",
+  "catalogo",
 ]);
 
 /** Verifica se um slug colide com rotas reservadas. */

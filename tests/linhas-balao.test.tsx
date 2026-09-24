@@ -1,0 +1,117 @@
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BalaoProativo } from "@/components/linhas/balao-proativo";
+import { CONFIG_PUBLICA } from "@/lib/config-publica";
+import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
+import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
+
+let aoCruzar: ((e: { isIntersecting: boolean }[]) => void) | null = null;
+/** Onde o `ClienteWebchat` guarda a sessão (mesmo formato conferido em webchat-cliente.test.ts). */
+const CHAVE_DA_SESSAO = `webchat_token_${CONFIG_PUBLICA.webchatKey}`;
+
+beforeEach(() => {
+  sessionStorage.clear();
+  localStorage.clear();
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      constructor(cb: typeof aoCruzar) {
+        aoCruzar = cb;
+      }
+      observe() {}
+      disconnect() {}
+    },
+  );
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe("BalaoProativo", () => {
+  it("aparece depois da espera, como gatilho do chat com a abertura", () => {
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />);
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    act(() => vi.advanceTimersByTime(8000));
+    const balao = screen.getByRole("button", { name: GREEN_TURBO.ia.balao });
+    expect(balao.getAttribute("data-abrir-chat")).toBe("");
+    expect(balao.getAttribute("data-item")).toBe("Linha Green Turbo");
+    expect(balao.getAttribute("data-abertura")).toBe(GREEN_TURBO.ia.balao);
+  });
+
+  it("aparece antes se a faixa dos grãos entrar na tela", () => {
+    document.body.innerHTML = '<section id="faixa-dos-graos"></section>';
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />);
+    act(() => aoCruzar?.([{ isIntersecting: true }]));
+    expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
+  });
+
+  it("uma vez por visita: fechado não volta, nem remontando", async () => {
+    const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { unmount } = render(
+      <BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />,
+    );
+    act(() => vi.advanceTimersByTime(10));
+    await usuario.click(screen.getByRole("button", { name: /fechar/i }));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    unmount();
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("não aparece se o chat já foi aberto", () => {
+    const { unmount } = render(
+      <BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />,
+    );
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
+    act(() => vi.advanceTimersByTime(8000));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+    // Remontando: sessionStorage foi marcado, não volta
+    unmount();
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("some quando o chat abre", () => {
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(10));
+    expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
+    act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("não aparece para quem já tem conversa salva (sessão do webchat guardada)", () => {
+    localStorage.setItem(CHAVE_DA_SESSAO, "token-existente");
+    document.body.innerHTML = '<section id="faixa-dos-graos"></section>';
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    act(() => aoCruzar?.([{ isIntersecting: true }]));
+    act(() => vi.advanceTimersByTime(50));
+    expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
+  });
+
+  it("armazenamento bloqueado não derruba o balão", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("bloqueado");
+    });
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    act(() => vi.advanceTimersByTime(10));
+    expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
+  });
+
+  it("é anunciado por uma região viva educada, sem roubar o foco", () => {
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
+    // A região existe desde o início (vazia): leitor de tela só anuncia mudança numa região já montada.
+    const regiao = screen.getByRole("status");
+    expect(regiao.getAttribute("aria-live")).toBe("polite");
+    expect(regiao.textContent).toBe("");
+    act(() => vi.advanceTimersByTime(10));
+    expect(regiao.contains(screen.getByRole("button", { name: GREEN_TURBO.ia.balao }))).toBe(true);
+    expect(document.activeElement).toBe(document.body);
+  });
+});

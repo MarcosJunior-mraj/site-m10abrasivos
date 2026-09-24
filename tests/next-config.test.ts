@@ -2,6 +2,8 @@ import { PHASE_DEVELOPMENT_SERVER, PHASE_PRODUCTION_BUILD } from "next/constants
 import { hasLocalMatch } from "next/dist/shared/lib/match-local-pattern";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { conferirVariaveisDeBuild } from "@/lib/conferir-build";
+import type { Linha } from "@/lib/linhas";
+import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
 import configuracao from "@/next.config";
 
 afterEach(() => {
@@ -23,6 +25,70 @@ describe("conferirVariaveisDeBuild (M2)", () => {
     expect(() =>
       conferirVariaveisDeBuild({ NEXT_PUBLIC_WHATSAPP_FALLBACK: "+55 (11) 99999-9999" }),
     ).not.toThrow();
+  });
+});
+
+describe("conferirVariaveisDeBuild — base da mídia", () => {
+  const WHATSAPP = { NEXT_PUBLIC_WHATSAPP_FALLBACK: "5511999999999" };
+  const VIDEO = {
+    celular: "gt/topo-c.mp4",
+    computador: "gt/topo-d.mp4",
+    capa: "gt/c.jpg",
+    descricao: "x",
+  };
+  const FOTO = { caminho: "gt/f.jpg", alt: "f", largura: 10, altura: 10 };
+  const SEM_MIDIA: Linha = { ...GREEN_TURBO, rascunho: false };
+  const comMidia: Record<string, Linha> = {
+    "topo.video": { ...SEM_MIDIA, topo: { ...SEM_MIDIA.topo, video: VIDEO } },
+    "razoes[].video": {
+      ...SEM_MIDIA,
+      razoes: {
+        ...SEM_MIDIA.razoes,
+        itens: SEM_MIDIA.razoes.itens.map((r, i) => (i === 1 ? { ...r, video: VIDEO } : r)),
+      },
+    },
+    "faixa.fotoEspelhado": { ...SEM_MIDIA, faixa: { ...SEM_MIDIA.faixa, fotoEspelhado: FOTO } },
+    "seo.imagem": { ...SEM_MIDIA, seo: { ...SEM_MIDIA.seo, imagem: FOTO } },
+    depoimentos: {
+      ...SEM_MIDIA,
+      depoimentos: [
+        {
+          video: { arquivo: "gt/d.mp4", capa: "gt/d.jpg" },
+          nome: "A",
+          cidade: "B",
+          marmoraria: "C",
+          autorizado: true,
+        },
+      ],
+    },
+  };
+
+  for (const [campo, linha] of Object.entries(comMidia)) {
+    it(`linha publicada com mídia em ${campo} recusa NEXT_PUBLIC_MIDIA_URL vazio`, () => {
+      expect(() => conferirVariaveisDeBuild(WHATSAPP, [linha])).toThrow(/NEXT_PUBLIC_MIDIA_URL/);
+      expect(() =>
+        conferirVariaveisDeBuild({ ...WHATSAPP, NEXT_PUBLIC_MIDIA_URL: "  " }, [linha]),
+      ).toThrow(/NEXT_PUBLIC_MIDIA_URL/);
+      expect(() =>
+        conferirVariaveisDeBuild(
+          {
+            ...WHATSAPP,
+            NEXT_PUBLIC_MIDIA_URL: "https://x.supabase.co/storage/v1/object/public/site-midia",
+          },
+          [linha],
+        ),
+      ).not.toThrow();
+    });
+
+    it(`rascunho com mídia em ${campo} não exige a base (não vai ao ar)`, () => {
+      expect(() =>
+        conferirVariaveisDeBuild(WHATSAPP, [{ ...linha, rascunho: true }]),
+      ).not.toThrow();
+    });
+  }
+
+  it("linha publicada sem mídia nenhuma não exige a base", () => {
+    expect(() => conferirVariaveisDeBuild(WHATSAPP, [SEM_MIDIA])).not.toThrow();
   });
 });
 

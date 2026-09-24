@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { buscarCategorias, buscarItens } from "@/lib/catalog/client";
 import { lerConfigServidor } from "@/lib/config";
+import { linhasPublicadas } from "@/lib/linhas";
 import { ehSlugReservado } from "@/lib/rotas";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -14,6 +15,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: siteUrl, changeFrequency: "weekly", priority: 1 },
+    { url: `${siteUrl}/catalogo`, changeFrequency: "weekly", priority: 0.8 },
+    ...linhasPublicadas().map((linha) => ({
+      url: `${siteUrl}/linhas/${linha.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.9,
+    })),
     { url: `${siteUrl}/privacidade`, changeFrequency: "yearly", priority: 0.2 },
     ...comItens.map((categoria) => ({
       url: `${siteUrl}/${categoria.slug}`,

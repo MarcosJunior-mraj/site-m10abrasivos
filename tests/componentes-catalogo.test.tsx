@@ -28,6 +28,14 @@ function item(parcial: Partial<ItemCatalogo>): ItemCatalogo {
 }
 
 describe("CartaoItem", () => {
+  it("título do cartão é h3 por padrão e aceita outro nível (nivelTitulo)", () => {
+    const { rerender } = render(<CartaoItem item={item({})} />);
+    expect(screen.getByRole("heading", { level: 3 })).toBeTruthy();
+    rerender(<CartaoItem item={item({})} nivelTitulo={4} />);
+    expect(screen.queryByRole("heading", { level: 3 })).toBeNull();
+    expect(screen.getByRole("heading", { level: 4 })).toBeTruthy();
+  });
+
   it("leva à página do item e mostra a foto pela rota do site", () => {
     const { container } = render(<CartaoItem item={item({})} />);
     expect(screen.getByRole("link", { name: /Green Turbo #50/ }).getAttribute("href")).toBe(

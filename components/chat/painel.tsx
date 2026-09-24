@@ -14,10 +14,12 @@ export function Painel({
   estado,
   aoEnviar,
   aoFechar,
+  variante = "flutuante",
 }: {
   estado: EstadoDoChat;
   aoEnviar: (texto: string) => void;
   aoFechar: () => void;
+  variante?: "flutuante" | "embutido";
 }) {
   const [texto, setTexto] = useState("");
   const painel = useRef<HTMLDivElement>(null);
@@ -36,6 +38,7 @@ export function Painel({
   }, [semCampo]);
 
   useEffect(() => {
+    if (variante === "embutido") return;
     function aoTeclar(evento: KeyboardEvent) {
       if (evento.key === "Escape") {
         aoFechar();
@@ -63,16 +66,21 @@ export function Painel({
     }
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
-  }, [aoFechar]);
+  }, [aoFechar, variante]);
 
   return (
+    // biome-ignore lint/a11y/useAriaPropsSupportedByRole: role é dinâmico (region/dialog); os dois aceitam aria-label.
     <div
       ref={painel}
-      role="dialog"
+      role={variante === "embutido" ? "region" : "dialog"}
       aria-label="Conversa com o especialista"
-      aria-modal="true"
+      aria-modal={variante === "embutido" ? undefined : "true"}
       tabIndex={-1}
-      className="fixed bottom-24 right-4 z-50 flex h-[32rem] w-[min(24rem,calc(100vw-2rem))] flex-col rounded-tecnico border border-borda bg-superficie shadow-2xl"
+      className={
+        variante === "embutido"
+          ? "flex h-[28rem] w-full flex-col rounded-tecnico border border-borda bg-superficie"
+          : "fixed bottom-24 right-4 z-50 flex h-[32rem] w-[min(24rem,calc(100vw-2rem))] flex-col rounded-tecnico border border-borda bg-superficie shadow-2xl"
+      }
     >
       <header className="flex items-center justify-between border-b border-borda px-4 py-3">
         <div>

@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AvisoLgpd } from "@/components/chat/aviso-lgpd";
 import { Painel } from "@/components/chat/painel";
 import { resolverTurnstile } from "@/components/chat/turnstile";
 import { CONFIG_PUBLICA } from "@/lib/config-publica";
+import { registrarEvento } from "@/lib/medicao";
 import { ClienteWebchat } from "@/lib/webchat/cliente";
 import { FilaDeExibicao } from "@/lib/webchat/fila";
 import type { EstadoDoChat } from "@/lib/webchat/tipos";
@@ -42,7 +44,16 @@ function leu(chave: string): string | null {
 }
 
 /** Cada clique que abre o painel gera um pedido novo (o `id` muda), mesmo com o mesmo item. */
-export type PedidoDeAbertura = { id: number; item: string | null };
+export type PedidoDeAbertura = {
+  id: number;
+  item: string | null;
+  /** Fala da IA mostrada pelo site (balão); vira a 1ª bolha e segue no contexto. */
+  abertura: string | null;
+  /** Pergunta pronta: enviada sozinha assim que a sessão estiver pronta. */
+  mensagem: string | null;
+  /** Onde mostrar o painel dentro da página (chat embutido); `null` = flutuante. */
+  destino: HTMLElement | null;
+};
 
 export type PropsDoChatCompleto = {
   aberto: boolean;
@@ -74,6 +85,19 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   const clienteRef = useRef<ClienteWebchat | null>(null);
   const enfileiradasRef = useRef(0);
   const itemRef = useRef<string | null>(null);
+  const aberturaRef = useRef<string | null>(null);
+  const [abertura, setAbertura] = useState<string | null>(null);
+  /** `true` depois do 1º envio desde que a abertura atual apareceu: a partir daí ela é histórico da conversa, não mais uma pergunta em aberto — reabrir sem `data-abertura` não pode apagá-la. */
+  const enviouDesdeAberturaRef = useRef(false);
+  const mensagemPendenteRef = useRef<string | null>(null);
+  /**
+   * Abertura pedida pelo gatilho, ainda por decidir: só vira bolha (e vai no
+   * contexto) se a conversa estiver VAZIA — o CRM só grava a nota de contexto
+   * na 1ª mensagem. Com a sessão ainda abrindo, a decisão espera o histórico.
+   */
+  const aberturaCandidataRef = useRef<string | null>(null);
+  /** O cliente cuja 1ª abertura de sessão ainda está em andamento (`null` = nenhuma). */
+  const iniciandoRef = useRef<ClienteWebchat | null>(null);
   const contingenciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desligarRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Só `true` quando o timer de 60 s de fato desligou o fluxo: é o que autoriza religar ao voltar. */
@@ -130,8 +154,56 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     return cliente;
   }, []);
 
+  const enviar = useCallback(
+    async (texto: string) => {
+      const cliente = garantirCliente();
+      await cliente.enviar(texto, {
+        url: location.href,
+        item: itemRef.current,
+        abertura: aberturaRef.current,
+      });
+      registrarEvento("mensagem_enviada", { item: itemRef.current });
+      enviouDesdeAberturaRef.current = true;
+      if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
+      contingenciaRef.current = setTimeout(() => {
+        setContingenciaAtiva(true);
+      }, ESPERA_MAXIMA_MS);
+    },
+    [garantirCliente],
+  );
+
+  /**
+   * Decide a abertura candidata com o histórico já conhecido: conversa vazia,
+   * ela vira a 1ª bolha; conversa com mensagens, é ignorada (não aparece, não
+   * vai ao CRM). Sem abertura aceita, uma abertura anterior que o visitante
+   * não respondeu some (senão vazaria para esta reabertura); já respondida, é
+   * histórico da conversa e fica.
+   */
+  const decidirAbertura = useCallback(() => {
+    const candidata = aberturaCandidataRef.current;
+    aberturaCandidataRef.current = null;
+    const conversaVazia = (clienteRef.current?.estado.bolhas.length ?? 0) === 0;
+    if (candidata && conversaVazia) {
+      aberturaRef.current = candidata;
+      setAbertura(candidata);
+      enviouDesdeAberturaRef.current = false;
+    } else if (!enviouDesdeAberturaRef.current) {
+      aberturaRef.current = null;
+      setAbertura(null);
+    }
+  }, []);
+
+  /** Pergunta pronta do clique: vai uma vez só, quando já há sessão. */
+  const despacharPendente = useCallback(() => {
+    const texto = mensagemPendenteRef.current;
+    if (!texto) return;
+    mensagemPendenteRef.current = null;
+    void enviar(texto);
+  }, [enviar]);
+
   const iniciar = useCallback(async () => {
     const cliente = garantirCliente();
+    iniciandoRef.current = cliente;
     try {
       // O Turnstile já não lança (qualquer falha vira "sem token", e o CRM
       // decide); o `catch` é a última rede para qualquer surpresa daqui até
@@ -141,23 +213,40 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
       // Desmontado no meio do caminho (ex.: modo estrito): não liga o fluxo de
       // um cliente que ninguém mais escuta.
       if (clienteRef.current !== cliente) return;
+      if (iniciandoRef.current === cliente) iniciandoRef.current = null;
+      // Histórico já carregado pela sessão: agora dá para saber se a conversa está vazia.
+      decidirAbertura();
       cliente.conectar();
+      despacharPendente();
     } catch {
       cliente.cairParaWhatsapp(AVISO_FALHA_NA_ABERTURA);
+    } finally {
+      if (iniciandoRef.current === cliente) iniciandoRef.current = null;
     }
-  }, [garantirCliente]);
+  }, [garantirCliente, decidirAbertura, despacharPendente]);
 
   // Cada pedido de abertura vindo do botão (ou de um `data-abrir-chat`).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reage só a um pedido NOVO (o `id`); o item viaja junto.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reage só a um pedido NOVO (o `id`); item, abertura e mensagem viajam junto.
   useEffect(() => {
     itemRef.current = pedido.item;
+    aberturaCandidataRef.current = pedido.abertura;
+    mensagemPendenteRef.current = pedido.mensagem;
     if (!leu(CHAVE_LGPD)) {
       setPrecisaAceitar(true);
       return;
     }
-    if (!clienteRef.current) void iniciar();
-    else void clienteRef.current.sincronizar();
-  }, [pedido.id, iniciar]);
+    const cliente = clienteRef.current;
+    if (!cliente) {
+      void iniciar();
+      return;
+    }
+    // 1ª sessão ainda abrindo (2º clique rápido): sem token não há o que
+    // sincronizar nem como enviar. O `iniciar` em andamento decide a abertura
+    // e despacha a pergunta pendente quando a sessão existir.
+    if (iniciandoRef.current === cliente) return;
+    decidirAbertura();
+    void cliente.sincronizar().then(() => despacharPendente());
+  }, [pedido.id, iniciar, decidirAbertura, despacharPendente]);
 
   // Aba escondida por mais de um minuto: fecha o fluxo. Ao voltar, sincroniza e
   // reconecta — SÓ se o fluxo foi mesmo desligado. Aba escondida por menos
@@ -199,6 +288,7 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     return () => {
       clienteRef.current?.encerrar();
       clienteRef.current = null;
+      iniciandoRef.current = null;
       if (contingenciaRef.current) {
         clearTimeout(contingenciaRef.current);
         contingenciaRef.current = null;
@@ -210,20 +300,12 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
     };
   }, []);
 
-  async function enviar(texto: string) {
-    const cliente = garantirCliente();
-    await cliente.enviar(texto, { url: location.href, item: itemRef.current });
-    if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
-    contingenciaRef.current = setTimeout(() => {
-      setContingenciaAtiva(true);
-    }, ESPERA_MAXIMA_MS);
-  }
-
   if (!aberto) return null;
 
   if (precisaAceitar) {
-    return (
+    const aviso = (
       <AvisoLgpd
+        variante={pedido.destino ? "embutido" : "flutuante"}
         aoAceitar={() => {
           try {
             localStorage.setItem(CHAVE_LGPD, "1");
@@ -236,15 +318,32 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
         aoRecusar={aoFechar}
       />
     );
+    // Mesmo lugar do painel: dentro da seção quando o pedido veio de um chat embutido.
+    return pedido.destino ? createPortal(aviso, pedido.destino) : aviso;
   }
 
   const atual = estado ?? ESTADO_ABRINDO;
+  const bolhasVisiveis = atual.bolhas.slice(0, visiveis);
+  // A abertura mostrada pelo site (balão) vira a 1ª bolha da IA — sintética,
+  // nunca vai para o núcleo nem conta como mensagem do cliente.
+  const comAbertura = abertura
+    ? [
+        {
+          id: "abertura",
+          de: "especialista" as const,
+          texto: abertura,
+          situacao: "entregue" as const,
+        },
+        ...bolhasVisiveis,
+      ]
+    : bolhasVisiveis;
 
-  return (
+  const painel = (
     <Painel
+      variante={pedido.destino ? "embutido" : "flutuante"}
       estado={{
         ...atual,
-        bolhas: atual.bolhas.slice(0, visiveis),
+        bolhas: comAbertura,
         // Combinadas só na hora de renderizar: a contingência é estado do
         // widget, nunca escrito dentro do `estado` que veio do núcleo.
         ofereceuWhatsapp: atual.ofereceuWhatsapp || contingenciaAtiva,
@@ -254,6 +353,7 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
       aoFechar={aoFechar}
     />
   );
+  return pedido.destino ? createPortal(painel, pedido.destino) : painel;
 }
 
 export default ChatCompleto;

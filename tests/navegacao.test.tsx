@@ -1,10 +1,15 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
+
 import { TrilhaDoItem } from "@/components/catalogo/trilha-do-item";
 import { Cabecalho } from "@/components/layout/cabecalho";
 
 describe("Cabecalho no celular (M4)", () => {
-  it("a navegação de categorias não some abaixo de md: rola na horizontal", () => {
+  it("a navegação não some abaixo de md e as categorias ficam acessíveis no menu Linhas", () => {
     render(
       <Cabecalho
         categorias={[
@@ -13,9 +18,8 @@ describe("Cabecalho no celular (M4)", () => {
         ]}
       />,
     );
-    const nav = screen.getByRole("navigation", { name: "Categorias" });
+    const nav = screen.getByRole("navigation", { name: "Principal" });
     expect(nav.className).not.toMatch(/(^|\s)hidden(\s|$)/);
-    expect(nav.className).toMatch(/overflow-x-auto/);
     expect(screen.getByRole("link", { name: "Discos de corte" }).getAttribute("href")).toBe(
       "/discos-de-corte",
     );

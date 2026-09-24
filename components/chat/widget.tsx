@@ -13,6 +13,8 @@ import {
 import type { PedidoDeAbertura } from "@/components/chat/chat-completo";
 import { PainelProvisorio } from "@/components/chat/painel-provisorio";
 import { CONFIG_PUBLICA } from "@/lib/config-publica";
+import { registrarEvento } from "@/lib/medicao";
+import { EVENTO_CHAT_ABERTO } from "@/lib/webchat/eventos";
 import { linkDoWhatsapp } from "@/lib/webchat/whatsapp";
 
 /**
@@ -24,6 +26,16 @@ import { linkDoWhatsapp } from "@/lib/webchat/whatsapp";
 const ChatCompleto = lazy(() => import("@/components/chat/chat-completo"));
 
 const LINK_DE_RESERVA = linkDoWhatsapp(CONFIG_PUBLICA.whatsappFallback);
+
+/**
+ * Contexto padrão da página (ex.: `<main data-contexto-chat="Linha Green Turbo">`
+ * na página de uma linha): vale para gatilhos sem `data-item` — o botão do
+ * cabeçalho, o flutuante no primeiro clique — para a nota no CRM nunca sair
+ * só com a URL.
+ */
+function contextoDaPagina(): string | null {
+  return document.querySelector("[data-contexto-chat]")?.getAttribute("data-contexto-chat") ?? null;
+}
 
 /**
  * Se o código do chat não chegar (rede caiu no meio, deploy novo trocou os
@@ -51,20 +63,44 @@ export function Widget() {
   const [aberto, setAberto] = useState(false);
   const [pedido, setPedido] = useState<PedidoDeAbertura | null>(null);
   const [naoLidas, setNaoLidas] = useState(0);
+  /** O painel aberto é o embutido (dentro de uma seção da página), não a janela flutuante. */
+  const [noDestino, setNoDestino] = useState(false);
   const itemRef = useRef<string | null>(null);
+  const destinoRef = useRef<HTMLElement | null>(null);
   const botaoRef = useRef<HTMLButtonElement>(null);
+  /** Quem recebe o foco depois que o painel fechar (e a página se redesenhar). */
+  const focoAoFecharRef = useRef<HTMLElement | null>(null);
 
-  /** Fecha o painel e devolve o foco ao botão flutuante — inclusive quando o fechamento veio do Esc. */
+  /**
+   * Fecha o painel e devolve o foco a quem faz sentido — inclusive quando o
+   * fechamento veio do Esc: na janela flutuante, ao botão flutuante; no chat
+   * embutido, ao "Escreva sua pergunta…" daquela seção
+   * (`[data-chat-foco-ao-fechar]`), que só volta a aparecer quando o painel
+   * sai do alvo — por isso o foco vai no efeito, depois do redesenho.
+   */
   const fechar = useCallback(() => {
+    const secao = destinoRef.current?.closest<HTMLElement>("[data-chat-embutido]");
+    focoAoFecharRef.current =
+      secao?.querySelector<HTMLElement>("[data-chat-foco-ao-fechar]") ?? botaoRef.current;
     setAberto(false);
-    botaoRef.current?.focus();
   }, []);
 
-  const abrir = useCallback((item: string | null) => {
-    itemRef.current = item;
+  useEffect(() => {
+    if (aberto || !focoAoFecharRef.current) return;
+    focoAoFecharRef.current.focus();
+    focoAoFecharRef.current = null;
+  }, [aberto]);
+
+  const abrir = useCallback((dados: Omit<PedidoDeAbertura, "id">) => {
+    itemRef.current = dados.item;
+    destinoRef.current = dados.destino;
+    setNoDestino(dados.destino !== null);
     setAberto(true);
     setNaoLidas(0);
-    setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, item }));
+    setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, ...dados }));
+    registrarEvento("chat_aberto", { item: dados.item });
+    // O balão proativo escuta este evento para não aparecer se a conversa já está aberta.
+    window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO));
   }, []);
 
   const contarNaoLida = useCallback(() => setNaoLidas((quantas) => quantas + 1), []);
@@ -78,7 +114,14 @@ export function Widget() {
       const gatilho = alvo.closest<HTMLElement>("[data-abrir-chat]");
       if (!gatilho) return;
       evento.preventDefault();
-      abrir(gatilho.dataset.item ?? null);
+      const embutido = gatilho.closest<HTMLElement>("[data-chat-embutido]");
+      const destino = embutido?.querySelector<HTMLElement>("[data-chat-alvo]") ?? null;
+      abrir({
+        item: gatilho.dataset.item ?? contextoDaPagina(),
+        abertura: gatilho.dataset.abertura ?? null,
+        mensagem: gatilho.dataset.mensagem ?? null,
+        destino,
+      });
     }
     document.addEventListener("click", aoClicar);
     return () => document.removeEventListener("click", aoClicar);
@@ -97,8 +140,18 @@ export function Widget() {
         data-testid="botao-chat"
         // Alterna: aberto fecha sem rede nenhuma (a cota é de 200 req/dia por
         // sessão, e um clique de fechar não pode custar uma sincronização).
-        onClick={() => (aberto ? fechar() : abrir(itemRef.current))}
-        aria-expanded={aberto}
+        onClick={() =>
+          aberto && !destinoRef.current
+            ? fechar()
+            : abrir({
+                item: itemRef.current ?? contextoDaPagina(),
+                abertura: null,
+                mensagem: null,
+                destino: null,
+              })
+        }
+        // Só a janela flutuante: o chat embutido não é "expandido" por este botão.
+        aria-expanded={aberto && !noDestino}
         className="fixed bottom-4 right-4 z-50 min-h-14 rounded-tecnico bg-laranja px-5 font-semibold text-azul shadow-lg"
       >
         Falar com especialista

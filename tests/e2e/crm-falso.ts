@@ -45,6 +45,12 @@ function item(
   };
 }
 
+// Categoria própria dos itens da página de vendas por linha (Green Turbo):
+// não entra em CATEGORIAS de propósito, para não mudar a grade "Linhas M10"
+// nem a listagem de categorias que os testes antigos já verificam — a página
+// da linha busca esses itens pelo slug em /items, não pela categoria.
+const CATEGORIA_GREEN_TURBO_TESTE = { name: "Green Turbo (teste)", slug: "green-turbo-teste" };
+
 const ITENS = [
   item("gt-50", "Green Turbo #50", "50", ["granito"], ["desbaste"]),
   item("gt-400", "Green Turbo #400", "400", ["marmore"], ["polimento"]),
@@ -55,6 +61,25 @@ const ITENS = [
     ...item("gt-120", "Green Turbo #120", "120", ["granito"], ["polimento"]),
     description: "Abrasivo para polimento intermediário. Promoção: R$ 99,90 a unidade.",
     specs: { Preço: "R$ 10,00", Rosca: "M14" },
+  },
+  // Os 7 grãos e o kit da página /linhas/green-turbo: `isFeatured: false` e
+  // categoria própria para não mudar nenhuma expectativa e2e existente (grade
+  // "Linhas M10", contagem de categorias com itens etc.).
+  ...["50", "100", "200", "400", "800", "1500", "3000"].map((g) => ({
+    ...item(
+      `abrasivo-m10-green-turbo-${g}`,
+      `Abrasivo M10 Green Turbo #${g}`,
+      g,
+      ["granito"],
+      ["polimento"],
+    ),
+    isFeatured: false,
+    category: CATEGORIA_GREEN_TURBO_TESTE,
+  })),
+  {
+    ...item("kit-gt-para-poliborda", "Kit GT para Poliborda", null, [], [], "kit"),
+    isFeatured: false,
+    category: CATEGORIA_GREEN_TURBO_TESTE,
   },
 ];
 
@@ -88,6 +113,7 @@ const contagem: Record<string, number> = {};
 const mensagensDaConversa: MensagemArmazenada[] = [];
 let contadorDeMensagens = 0;
 let catalogoDesligado = false;
+let ultimoContexto: unknown = null;
 
 function registrar(caminho: string): void {
   contagem[caminho] = (contagem[caminho] ?? 0) + 1;
@@ -116,11 +142,15 @@ const servidor = createServer((requisicao, resposta) => {
     mensagensDaConversa.length = 0;
     contadorDeMensagens = 0;
     catalogoDesligado = false;
+    ultimoContexto = null;
     return json({ data: { ok: true } });
   }
   if (url.pathname === "/_desligar_catalogo" && requisicao.method === "POST") {
     catalogoDesligado = true;
     return json({ data: { ok: true } });
+  }
+  if (url.pathname === "/_ultimo_contexto" && requisicao.method === "GET") {
+    return json({ data: ultimoContexto });
   }
 
   // Inclui a query string: `/items` e `/items?category=X` são URLs (e
@@ -176,7 +206,9 @@ const servidor = createServer((requisicao, resposta) => {
       corpo += parte;
     });
     requisicao.on("end", () => {
-      const texto = String((JSON.parse(corpo) as { body?: string }).body ?? "");
+      const recebido = JSON.parse(corpo) as { body?: string; pageContext?: unknown };
+      const texto = String(recebido.body ?? "");
+      ultimoContexto = recebido.pageContext ?? null;
       contadorDeMensagens += 1;
       mensagensDaConversa.push({
         id: `msg_srv_${contadorDeMensagens}`,

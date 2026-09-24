@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { GREEN_TURBO } from "@/lib/linhas/green-turbo";
+
+const registro = vi.hoisted(() => ({ linhas: [] as import("@/lib/linhas").Linha[] }));
+vi.mock("@/lib/linhas", async (importOriginal) => {
+  const { registroCom } = await import("./duplos/registro-de-linhas");
+  return registroCom(await importOriginal(), () => registro.linhas);
+});
 
 vi.mock("@/lib/config", () => ({
   lerConfigServidor: () => ({
@@ -34,9 +41,26 @@ describe("sitemap", () => {
   it("lista home, categorias, produtos e privacidade com URL absoluta", async () => {
     const urls = (await sitemap()).map((entrada) => entrada.url);
     expect(urls).toContain("https://m10abrasivos.com.br");
+    expect(urls).toContain("https://m10abrasivos.com.br/catalogo");
     expect(urls).toContain("https://m10abrasivos.com.br/poliborda");
     expect(urls).toContain("https://m10abrasivos.com.br/produto/gt-50");
     expect(urls).toContain("https://m10abrasivos.com.br/privacidade");
+  });
+
+  beforeEach(() => {
+    registro.linhas = [{ ...GREEN_TURBO, rascunho: true }];
+  });
+
+  it("linha em rascunho não entra no sitemap", async () => {
+    registro.linhas = [{ ...GREEN_TURBO, rascunho: true }];
+    const urls = (await sitemap()).map((entrada) => entrada.url);
+    expect(urls).not.toContain("https://m10abrasivos.com.br/linhas/green-turbo");
+  });
+
+  it("linha publicada entra no sitemap", async () => {
+    registro.linhas = [{ ...GREEN_TURBO, rascunho: false }];
+    const urls = (await sitemap()).map((entrada) => entrada.url);
+    expect(urls).toContain("https://m10abrasivos.com.br/linhas/green-turbo");
   });
 });
 

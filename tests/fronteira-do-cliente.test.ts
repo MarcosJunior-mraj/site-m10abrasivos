@@ -47,6 +47,8 @@ function grafoEstatico(entrada: string): Set<string> {
 
 const PROIBIDOS_NA_CARGA_INICIAL = [
   "zod",
+  "lib/linhas/esquema.ts",
+  "lib/linhas/index.ts",
   "zod/mini",
   "server-only",
   "lib/config.ts",
@@ -58,7 +60,18 @@ const PROIBIDOS_NA_CARGA_INICIAL = [
 ];
 
 describe("fronteira do pacote do navegador", () => {
-  for (const entrada of ["components/chat/widget.tsx", "components/layout/rodape.tsx"]) {
+  // Pontos de entrada de cliente ("use client") que vão na carga de uma página.
+  // `import type` é ignorado pelo grafo (some na compilação): tipos de
+  // `lib/linhas/esquema.ts` não puxam o Zod.
+  for (const entrada of [
+    "components/chat/widget.tsx",
+    "components/layout/rodape.tsx",
+    "components/layout/menu-de-linhas.tsx",
+    "components/linhas/balao-proativo.tsx",
+    "components/linhas/faixa-dos-graos.tsx",
+    "components/linhas/video-curto.tsx",
+    "components/linhas/video-com-som.tsx",
+  ]) {
     it(`${entrada} não puxa Zod, config de servidor nem o chat pesado na carga inicial`, () => {
       const alcancados = grafoEstatico(entrada);
       for (const proibido of PROIBIDOS_NA_CARGA_INICIAL) {

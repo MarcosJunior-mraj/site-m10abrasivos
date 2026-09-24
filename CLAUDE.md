@@ -99,6 +99,69 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   `import "server-only"` — importar num componente de cliente quebra o
   build); `lib/config-publica.ts` tem só as `NEXT_PUBLIC_*`, sem Zod.
 
+## Páginas de vendas por linha
+
+- **Conteúdo em `lib/linhas/`**: cada linha (ex.: `lib/linhas/green-turbo.ts`) é um
+  objeto validado por `esquemaLinha` (`lib/linhas/esquema.ts`, Zod) — conteúdo
+  quebrado derruba o **build**, nunca a página em produção. `lib/linhas/index.ts`
+  expõe `buscarLinha`, `linhasVisiveis` (para `generateStaticParams`) e
+  `linhasPublicadas` (home, menu, sitemap).
+- **Rascunho (`linha.rascunho: true`) não vai ao ar** — `podeMostrar()` só deixa
+  passar com a variável de servidor `MOSTRAR_RASCUNHOS=1`. Fora isso, a rota
+  `/linhas/[slug]` de uma linha em rascunho dá 404 (ver `.env.example`: **só
+  desenvolvimento/e2e, nunca em produção** — é assim que se mostra uma linha em
+  progresso para revisão sem publicá-la para o visitante).
+- **Mídia (fotos e vídeos) vem de fora do repositório**: o conteúdo de uma linha
+  guarda só o caminho relativo (ex.: `"green-turbo/topo-celular.mp4"`);
+  `urlDaMidia()` (`lib/midia.ts`) monta a URL final prefixando
+  `NEXT_PUBLIC_MIDIA_URL` (base pública do bucket `site-midia`). Trocar de
+  serviço de hospedagem de mídia não exige tocar no conteúdo das linhas.
+  É `NEXT_PUBLIC_*` (gravada no pacote no build, é `ARG`/`ENV` no
+  `Dockerfile`): o build de produção **falha** se alguma linha publicada
+  tiver mídia e ela estiver vazia (`lib/conferir-build.ts`).
+- **Convenção de nome do vídeo do topo**: o arquivo do vídeo do herói (`topo`,
+  above the fold) precisa ter `"topo"` no caminho (ex.:
+  `"green-turbo/topo-celular.mp4"`) — é por esse pedaço do caminho que o teste
+  e2e (`tests/e2e/linha.spec.ts`, "vídeos de seção não baixam antes da hora")
+  distingue o vídeo que deve mesmo carregar já na entrada (prioridade, sem
+  esperar rolagem) dos vídeos das demais seções, que só devem baixar quando a
+  seção entra na tela.
+- **"Nada inventado"**: `esquemaDepoimento` exige `autorizado: z.literal(true)`
+  (depoimento só entra com autorização registrada) e `esquemaNumero` exige o
+  campo `fonte` em todo número exibido (`lib/linhas/esquema.ts`). Um depoimento
+  ou número sem essa procedência não passa da validação do schema — não é para
+  ser contornado escrevendo o dado direto na página.
+- **Atributos do chat, para qualquer seção da página de uma linha abrir o
+  widget sem importar nada de `components/chat/`**: qualquer elemento com
+  `data-abrir-chat` abre o painel quando clicado (ouvido por um listener
+  único em `document`, montado por `components/chat/widget.tsx`). Junto dele:
+  - `data-item`: texto do contexto da linha enviado ao CRM (`pageContext.item`)
+    — ex.: `linha.ia.contexto` ("Linha Green Turbo"). Gatilho sem `data-item`
+    (botão do cabeçalho, botão flutuante no 1º clique) usa o contexto padrão
+    da página: o `<main data-contexto-chat="...">` da página da linha.
+  - `data-abertura`: a fala da IA (balão) mostrada como 1ª bolha da conversa
+    — **só se a conversa estiver vazia** (decidido depois de a sessão abrir e
+    trazer o histórico): o CRM só grava a nota de contexto na 1ª mensagem,
+    então numa conversa já começada a abertura é ignorada (não aparece, não
+    vai ao CRM). Pelo mesmo motivo o balão proativo não aparece para quem já
+    tem sessão salva (`lib/webchat/sessao-guardada.ts`). Ausente/`null` quando
+    o gatilho não carrega uma abertura (reabrir pelo botão flutuante não apaga
+    a abertura anterior se ela já foi respondida; se não foi, ela some).
+  - `data-mensagem`: pergunta pronta enviada automaticamente assim que a
+    sessão abrir (usada pelos chips de "Pergunte ao especialista").
+  - Se o gatilho estiver dentro de um elemento com `[data-chat-embutido]`, o
+    painel monta **dentro da página** (via `createPortal`, variante
+    "embutido", `role="region"`) no `[data-chat-alvo]` daquele mesmo bloco, em
+    vez de flutuar (variante "flutuante", `role="dialog"`) — mas é sempre a
+    **mesma conversa** (mesmo `ClienteWebchat`, só muda onde o `Painel`
+    aparece). Um CSS em `app/globals.css`
+    (`[data-chat-alvo]:not(:empty) + [data-chat-previa]`) esconde a prévia com
+    os chips assim que o painel entra no alvo. O aviso de LGPD pedido por um
+    gatilho embutido também aparece no alvo (não flutua). Ao fechar o chat
+    embutido, o foco volta ao elemento `[data-chat-foco-ao-fechar]` da seção
+    ("Escreva sua pergunta…"); o `aria-expanded` do botão flutuante só
+    reflete a janela flutuante.
+
 ## Contratos do CRM (resumo — a fonte completa é lá)
 
 Este repositório só consome; a implementação, as regras de limite, o modelo
@@ -140,6 +203,7 @@ primeira revalidação ou foto.
 | `EMPRESA_CNPJ` | Exibida em `/privacidade` |
 | `EMPRESA_EMAIL_ENCARREGADO` | E-mail do encarregado LGPD, exibido em `/privacidade` |
 | `IMAGENS_HOSTS_EXTRAS` | Opcional. Hosts (vírgula) além do Bling de onde `/imagens` pode buscar foto — ex.: foto de kit hospedada fora |
+| `MOSTRAR_RASCUNHOS` | Opcional, `"1"` mostra páginas de linha em rascunho (`lib/linhas/`). **Só desenvolvimento/e2e; nunca em produção** |
 
 Navegador (gravadas no pacote do navegador **durante o build** — por isso
 precisam existir como `ARG` no `Dockerfile` e como variável no momento de
@@ -151,6 +215,7 @@ precisam existir como `ARG` no `Dockerfile` e como variável no momento de
 | `NEXT_PUBLIC_WEBCHAT_KEY` | Chave pública do webchat (`x-webchat-key`) |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Site key do Cloudflare Turnstile |
 | `NEXT_PUBLIC_WHATSAPP_FALLBACK` | Número (só dígitos) do botão de contingência do chat. **Obrigatório: vazio derruba o build** (`lib/conferir-build.ts`, chamado pelo `next.config.ts`) |
+| `NEXT_PUBLIC_MIDIA_URL` | Base pública do bucket `site-midia`: fotos e vídeos das páginas de vendas por linha (`lib/midia.ts`) |
 
 Ver `.env.example` para os comentários de cada uma.
 
