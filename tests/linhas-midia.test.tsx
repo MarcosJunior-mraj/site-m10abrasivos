@@ -54,6 +54,23 @@ describe("VideoCurto", () => {
     act(() => aoCruzar?.([{ isIntersecting: true }]));
     expect(container.querySelector("video")).toBeNull();
   });
+
+  it("tem botão pausável para WCAG 2.2.2: antes de chegar não há botão; depois há; clique alterna pause/play", async () => {
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause");
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    render(<VideoCurto video={VIDEO} />);
+    expect(screen.queryByRole("button", { name: /pausar vídeo/i })).toBeNull();
+    act(() => aoCruzar?.([{ isIntersecting: true }]));
+    let btn = screen.getByRole("button", { name: /pausar vídeo/i });
+    expect(btn).toBeTruthy();
+    await userEvent.click(btn);
+    expect(pause).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /retomar vídeo/i })).toBeTruthy();
+    btn = screen.getByRole("button", { name: /retomar vídeo/i });
+    await userEvent.click(btn);
+    expect(play).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /pausar vídeo/i })).toBeTruthy();
+  });
 });
 
 describe("VideoComSom", () => {
