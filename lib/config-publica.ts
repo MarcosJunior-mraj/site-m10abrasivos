@@ -12,4 +12,6 @@ export const CONFIG_PUBLICA = {
   webchatKey: process.env.NEXT_PUBLIC_WEBCHAT_KEY ?? "",
   turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "",
   whatsappFallback: (process.env.NEXT_PUBLIC_WHATSAPP_FALLBACK ?? "").replace(/\D/g, ""),
+  /** Base pública do bucket `site-midia` (vídeos e fotos das páginas de vendas). */
+  midiaUrl: (process.env.NEXT_PUBLIC_MIDIA_URL ?? "").replace(/\/+$/, ""),
 } as const;
