@@ -86,6 +86,8 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   const itemRef = useRef<string | null>(null);
   const aberturaRef = useRef<string | null>(null);
   const [abertura, setAbertura] = useState<string | null>(null);
+  /** `true` depois do 1º envio desde que a abertura atual apareceu: a partir daí ela é histórico da conversa, não mais uma pergunta em aberto — reabrir sem `data-abertura` não pode apagá-la. */
+  const enviouDesdeAberturaRef = useRef(false);
   const mensagemPendenteRef = useRef<string | null>(null);
   const contingenciaRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const desligarRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,6 +154,7 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
         abertura: aberturaRef.current,
       });
       registrarEvento("mensagem_enviada", { item: itemRef.current });
+      enviouDesdeAberturaRef.current = true;
       if (contingenciaRef.current) clearTimeout(contingenciaRef.current);
       contingenciaRef.current = setTimeout(() => {
         setContingenciaAtiva(true);
@@ -190,9 +193,17 @@ export function ChatCompleto({ aberto, pedido, aoFechar, aoChegarNaoLida }: Prop
   // biome-ignore lint/correctness/useExhaustiveDependencies: reage só a um pedido NOVO (o `id`); item, abertura e mensagem viajam junto.
   useEffect(() => {
     itemRef.current = pedido.item;
+    // Sem abertura nova: se a anterior já foi enviada, é histórico da
+    // conversa — fica. Se não foi (o visitante fechou sem responder), some;
+    // senão vazaria para uma reabertura sem `data-abertura` (ex.: botão
+    // flutuante).
     if (pedido.abertura) {
       aberturaRef.current = pedido.abertura;
       setAbertura(pedido.abertura);
+      enviouDesdeAberturaRef.current = false;
+    } else if (!enviouDesdeAberturaRef.current) {
+      aberturaRef.current = null;
+      setAbertura(null);
     }
     mensagemPendenteRef.current = pedido.mensagem;
     if (!leu(CHAVE_LGPD)) {

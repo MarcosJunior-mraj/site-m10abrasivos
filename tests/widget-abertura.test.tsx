@@ -105,4 +105,100 @@ describe("Widget — abertura e mensagem pronta", () => {
     await screen.findByRole("dialog");
     expect(screen.getByRole("log").textContent).toBe("");
   });
+
+  it("fecha sem enviar e reabre pelo botão flutuante: a abertura abandonada não vaza", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <button
+          type="button"
+          data-abrir-chat=""
+          data-item="Linha Green Turbo"
+          data-abertura="Qual pedra você está polindo hoje?"
+        >
+          balão
+        </button>
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("balão"));
+    expect(await screen.findByText("Qual pedra você está polindo hoje?")).toBeTruthy();
+
+    await usuario.click(screen.getByRole("button", { name: /fechar conversa/i }));
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await screen.findByRole("textbox", { name: /mensagem/i });
+
+    expect(screen.queryByText("Qual pedra você está polindo hoje?")).toBeNull();
+
+    await usuario.type(screen.getByRole("textbox", { name: /mensagem/i }), "Oi{Enter}");
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Oi", {
+        url: expect.any(String),
+        item: "Linha Green Turbo",
+        abertura: null,
+      }),
+    );
+  });
+
+  it("depois de enviar durante a abertura, reabrir pelo botão flutuante mantém a bolha (é histórico)", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <button
+          type="button"
+          data-abrir-chat=""
+          data-item="Linha Green Turbo"
+          data-abertura="Qual pedra você está polindo hoje?"
+        >
+          balão
+        </button>
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("balão"));
+    expect(await screen.findByText("Qual pedra você está polindo hoje?")).toBeTruthy();
+
+    await usuario.type(await screen.findByRole("textbox", { name: /mensagem/i }), "Granito{Enter}");
+    await waitFor(() => expect(enviar).toHaveBeenCalledTimes(1));
+
+    await usuario.click(screen.getByRole("button", { name: /fechar conversa/i }));
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await screen.findByRole("textbox", { name: /mensagem/i });
+
+    expect(screen.getByText("Qual pedra você está polindo hoje?")).toBeTruthy();
+  });
+
+  it("abre com abertura A, fecha, abre de novo com abertura B: só B aparece", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <button
+          type="button"
+          data-abrir-chat=""
+          data-item="Linha Green Turbo"
+          data-abertura="Abertura A"
+        >
+          gatilho A
+        </button>
+        <button
+          type="button"
+          data-abrir-chat=""
+          data-item="Linha Green Turbo"
+          data-abertura="Abertura B"
+        >
+          gatilho B
+        </button>
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("gatilho A"));
+    expect(await screen.findByText("Abertura A")).toBeTruthy();
+
+    await usuario.click(screen.getByRole("button", { name: /fechar conversa/i }));
+    await usuario.click(screen.getByText("gatilho B"));
+    await screen.findByRole("textbox", { name: /mensagem/i });
+
+    expect(screen.queryByText("Abertura A")).toBeNull();
+    expect(screen.getByText("Abertura B")).toBeTruthy();
+  });
 });
