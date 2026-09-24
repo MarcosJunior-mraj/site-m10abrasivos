@@ -116,6 +116,9 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
   `urlDaMidia()` (`lib/midia.ts`) monta a URL final prefixando
   `NEXT_PUBLIC_MIDIA_URL` (base pública do bucket `site-midia`). Trocar de
   serviço de hospedagem de mídia não exige tocar no conteúdo das linhas.
+  É `NEXT_PUBLIC_*` (gravada no pacote no build, é `ARG`/`ENV` no
+  `Dockerfile`): o build de produção **falha** se alguma linha publicada
+  tiver mídia e ela estiver vazia (`lib/conferir-build.ts`).
 - **Convenção de nome do vídeo do topo**: o arquivo do vídeo do herói (`topo`,
   above the fold) precisa ter `"topo"` no caminho (ex.:
   `"green-turbo/topo-celular.mp4"`) — é por esse pedaço do caminho que o teste
