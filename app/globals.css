@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+:root {
+  --cor-azul: #20233A;
+  --cor-laranja: #F97709;
+  --cor-superficie: #2A2E4A;
+  --cor-borda: #3A3F60;
+  --cor-texto: #F2F3F7;
+  --cor-texto-secundario: #B9BCD0;
+  --cor-laranja-escuro: #C85A00;
+}
+
+@theme inline {
+  --color-azul: var(--cor-azul);
+  --color-laranja: var(--cor-laranja);
+  --color-superficie: var(--cor-superficie);
+  --color-borda: var(--cor-borda);
+  --color-texto: var(--cor-texto);
+  --color-texto-secundario: var(--cor-texto-secundario);
+  --color-laranja-escuro: var(--cor-laranja-escuro);
+  --font-titulo: var(--fonte-titulo);
+  --font-texto: var(--fonte-texto);
+  --font-mono: var(--fonte-mono);
+  --radius-tecnico: 2px;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--cor-azul);
+  color: var(--cor-texto);
+  font-family: var(--fonte-texto), system-ui, sans-serif;
+}
+
+h1, h2, h3 {
+  font-family: var(--fonte-titulo), system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cor-laranja);
+  outline-offset: 2px;
+}
+
+/* Grade técnica: linhas finas de 40 px, como papel milimetrado de oficina. */
+.grade-tecnica {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--cor-borda) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--cor-borda) 45%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
