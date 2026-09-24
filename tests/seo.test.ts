@@ -38,6 +38,11 @@ describe("sitemap", () => {
     expect(urls).toContain("https://m10abrasivos.com.br/produto/gt-50");
     expect(urls).toContain("https://m10abrasivos.com.br/privacidade");
   });
+
+  it("linha em rascunho não entra no sitemap", async () => {
+    const urls = (await sitemap()).map((entrada) => entrada.url);
+    expect(urls).not.toContain("https://m10abrasivos.com.br/linhas/green-turbo");
+  });
 });
 
 describe("robots", () => {
