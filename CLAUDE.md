@@ -156,7 +156,11 @@ vendedor em si é a Etapa 3, implementada no repositório do CRM.
     **mesma conversa** (mesmo `ClienteWebchat`, só muda onde o `Painel`
     aparece). Um CSS em `app/globals.css`
     (`[data-chat-alvo]:not(:empty) + [data-chat-previa]`) esconde a prévia com
-    os chips assim que o painel entra no alvo.
+    os chips assim que o painel entra no alvo. O aviso de LGPD pedido por um
+    gatilho embutido também aparece no alvo (não flutua). Ao fechar o chat
+    embutido, o foco volta ao elemento `[data-chat-foco-ao-fechar]` da seção
+    ("Escreva sua pergunta…"); o `aria-expanded` do botão flutuante só
+    reflete a janela flutuante.
 
 ## Contratos do CRM (resumo — a fonte completa é lá)
 
