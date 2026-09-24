@@ -27,8 +27,17 @@ function marcarMostrado(chave: string): void {
  * vier primeiro. Uma vez por visita (sessionStorage). O clique é tratado pelo
  * widget via `data-abrir-chat` + `data-abertura` — este componente não importa o chat.
  */
-export function BalaoProativo({ linha, esperaMs = 8000 }: { linha: Linha; esperaMs?: number }) {
-  const chave = `m10_balao_${linha.slug}`;
+export function BalaoProativo({
+  slug,
+  ia,
+  esperaMs = 8000,
+}: {
+  /** Só o necessário (componente de cliente: as props vão serializadas ao navegador). */
+  slug: string;
+  ia: Linha["ia"];
+  esperaMs?: number;
+}) {
+  const chave = `m10_balao_${slug}`;
   const [visivel, setVisivel] = useState(false);
   const apenasAParecerRef = useRef(true);
 
@@ -79,12 +88,12 @@ export function BalaoProativo({ linha, esperaMs = 8000 }: { linha: Linha; espera
       <button
         type="button"
         data-abrir-chat=""
-        data-item={linha.ia.contexto}
-        data-abertura={linha.ia.balao}
+        data-item={ia.contexto}
+        data-abertura={ia.balao}
         onClick={() => setVisivel(false)}
         className="text-left text-sm font-semibold"
       >
-        {linha.ia.balao}
+        {ia.balao}
       </button>
       <button
         type="button"

@@ -35,7 +35,7 @@ const acesos = () => screen.getAllByTestId("grao").filter((g) => g.dataset.aceso
 
 describe("FaixaDosGraos", () => {
   it("acende os grãos conforme a faixa entra na tela e revela a foto no fim", () => {
-    render(<FaixaDosGraos linha={COM_FOTO} />);
+    render(<FaixaDosGraos faixa={COM_FOTO.faixa} rascunho={COM_FOTO.rascunho} />);
     expect(
       screen.getByRole("heading", { name: /saia do fosco e chegue ao espelhado/i }),
     ).toBeTruthy();
@@ -49,7 +49,7 @@ describe("FaixaDosGraos", () => {
   });
 
   it("não apaga de volta ao rolar para cima", () => {
-    render(<FaixaDosGraos linha={COM_FOTO} />);
+    render(<FaixaDosGraos faixa={COM_FOTO.faixa} rascunho={COM_FOTO.rascunho} />);
     act(() => aoCruzar?.([{ intersectionRatio: 1, isIntersecting: true }]));
     act(() => aoCruzar?.([{ intersectionRatio: 0.2, isIntersecting: true }]));
     expect(acesos()).toBe(7);
@@ -57,15 +57,15 @@ describe("FaixaDosGraos", () => {
 
   it("com menos animação, começa tudo aceso e revelado", () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("reduce"), media: q }));
-    render(<FaixaDosGraos linha={COM_FOTO} />);
+    render(<FaixaDosGraos faixa={COM_FOTO.faixa} rascunho={COM_FOTO.rascunho} />);
     expect(acesos()).toBe(7);
     expect(screen.getByTestId("foto-espelhado").dataset.revelada).toBe("true");
   });
 
   it("sem foto: marcador no rascunho; publicada fica só com a barra", () => {
-    const { rerender } = render(<FaixaDosGraos linha={{ ...GREEN_TURBO, rascunho: true }} />);
+    const { rerender } = render(<FaixaDosGraos faixa={GREEN_TURBO.faixa} rascunho={true} />);
     expect(screen.getByText(/aguardando material: foto do brilho espelhado/i)).toBeTruthy();
-    rerender(<FaixaDosGraos linha={{ ...GREEN_TURBO, rascunho: false }} />);
+    rerender(<FaixaDosGraos faixa={GREEN_TURBO.faixa} rascunho={false} />);
     expect(screen.queryByTestId("foto-espelhado")).toBeNull();
     expect(screen.getAllByTestId("grao")).toHaveLength(7);
   });

@@ -79,7 +79,7 @@ export default async function PaginaDaLinha({ params }: Props) {
           }}
         />
         <SecaoTopo linha={linha} />
-        <FaixaDosGraos linha={linha} />
+        <FaixaDosGraos faixa={linha.faixa} rascunho={linha.rascunho} />
         <SecaoDor linha={linha} />
         <SecaoRazoes linha={linha} />
         <PergunteAoEspecialista linha={linha} />
@@ -89,7 +89,7 @@ export default async function PaginaDaLinha({ params }: Props) {
         <SecaoDuvidas linha={linha} />
         <SecaoFechamento linha={linha} />
       </main>
-      <BalaoProativo linha={linha} />
+      <BalaoProativo slug={linha.slug} ia={linha.ia} />
     </>
   );
 }

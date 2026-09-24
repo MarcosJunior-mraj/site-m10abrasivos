@@ -12,9 +12,12 @@ const LIMIARES = Array.from({ length: 21 }, (_, i) => i / 20);
  * grão a foto REAL do espelhado aparece com um reflexo passando. Nunca geramos
  * uma versão "fosca" da foto (seria mostrar um resultado que não aconteceu).
  * O progresso só avança: rolar para cima não apaga os grãos.
+ *
+ * Componente de cliente: recebe só o que usa (a faixa e se é rascunho), não a
+ * linha inteira — tudo que entra aqui é serializado para o navegador.
  */
-export function FaixaDosGraos({ linha }: { linha: Linha }) {
-  const { graos, fotoEspelhado, titulo } = linha.faixa;
+export function FaixaDosGraos({ faixa, rascunho }: { faixa: Linha["faixa"]; rascunho: boolean }) {
+  const { graos, fotoEspelhado, titulo } = faixa;
   const raiz = useRef<HTMLElement>(null);
   const [acesos, setAcesos] = useState(0);
 
@@ -81,7 +84,7 @@ export function FaixaDosGraos({ linha }: { linha: Linha }) {
             className="h-auto w-full"
           />
         </div>
-      ) : linha.rascunho ? (
+      ) : rascunho ? (
         <div className="mt-8">
           <AguardandoMaterial oque="foto do brilho espelhado" />
         </div>

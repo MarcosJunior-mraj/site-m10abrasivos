@@ -33,7 +33,7 @@ afterEach(() => {
 
 describe("BalaoProativo", () => {
   it("aparece depois da espera, como gatilho do chat com a abertura", () => {
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={8000} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />);
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
     act(() => vi.advanceTimersByTime(8000));
     const balao = screen.getByRole("button", { name: GREEN_TURBO.ia.balao });
@@ -44,38 +44,42 @@ describe("BalaoProativo", () => {
 
   it("aparece antes se a faixa dos grãos entrar na tela", () => {
     document.body.innerHTML = '<section id="faixa-dos-graos"></section>';
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={8000} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />);
     act(() => aoCruzar?.([{ isIntersecting: true }]));
     expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
   });
 
   it("uma vez por visita: fechado não volta, nem remontando", async () => {
     const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const { unmount } = render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    const { unmount } = render(
+      <BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />,
+    );
     act(() => vi.advanceTimersByTime(10));
     await usuario.click(screen.getByRole("button", { name: /fechar/i }));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
     unmount();
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
     act(() => vi.advanceTimersByTime(50));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
   });
 
   it("não aparece se o chat já foi aberto", () => {
-    const { unmount } = render(<BalaoProativo linha={GREEN_TURBO} esperaMs={8000} />);
+    const { unmount } = render(
+      <BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={8000} />,
+    );
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
     act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
     act(() => vi.advanceTimersByTime(8000));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
     // Remontando: sessionStorage foi marcado, não volta
     unmount();
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
     act(() => vi.advanceTimersByTime(50));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
   });
 
   it("some quando o chat abre", () => {
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
     act(() => vi.advanceTimersByTime(10));
     expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
     act(() => window.dispatchEvent(new Event(EVENTO_CHAT_ABERTO)));
@@ -85,7 +89,7 @@ describe("BalaoProativo", () => {
   it("não aparece para quem já tem conversa salva (sessão do webchat guardada)", () => {
     localStorage.setItem(CHAVE_DA_SESSAO, "token-existente");
     document.body.innerHTML = '<section id="faixa-dos-graos"></section>';
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
     act(() => aoCruzar?.([{ isIntersecting: true }]));
     act(() => vi.advanceTimersByTime(50));
     expect(screen.queryByText(GREEN_TURBO.ia.balao)).toBeNull();
@@ -95,7 +99,7 @@ describe("BalaoProativo", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("bloqueado");
     });
-    render(<BalaoProativo linha={GREEN_TURBO} esperaMs={10} />);
+    render(<BalaoProativo slug={GREEN_TURBO.slug} ia={GREEN_TURBO.ia} esperaMs={10} />);
     act(() => vi.advanceTimersByTime(10));
     expect(screen.getByRole("button", { name: GREEN_TURBO.ia.balao })).toBeTruthy();
   });
