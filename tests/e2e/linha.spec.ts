@@ -33,6 +33,19 @@ test("pergunta pronta envia a mensagem com o contexto da linha, no chat embutido
   expect(ctx.data).toMatchObject({ item: "Linha Green Turbo", abertura: null });
 });
 
+test("botão do cabeçalho leva o contexto da linha ao CRM", async ({ page, request }) => {
+  await page.goto("/linhas/green-turbo");
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: /falar com especialista/i })
+    .click();
+  await page.getByRole("textbox", { name: /mensagem/i }).fill("Oi");
+  await page.getByRole("button", { name: /^enviar$/i }).click();
+  await expect
+    .poll(async () => (await (await request.get(`${CRM}/_ultimo_contexto`)).json()).data?.item)
+    .toBe("Linha Green Turbo");
+});
+
 test("balão: uma vez por visita, e leva a pergunta como abertura", async ({ page, request }) => {
   await page.goto("/linhas/green-turbo");
   await page.getByRole("heading", { name: /saia do fosco/i }).scrollIntoViewIfNeeded();

@@ -69,7 +69,8 @@ export default async function PaginaDaLinha({ params }: Props) {
   return (
     <>
       <Cabecalho categorias={comItens.map((c) => ({ nome: c.name, slug: c.slug }))} />
-      <main>
+      {/* Contexto padrão do chat: gatilhos sem `data-item` (cabeçalho, flutuante) levam a linha ao CRM. */}
+      <main data-contexto-chat={linha.ia.contexto}>
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD é o nosso próprio objeto serializado (com `<` escapado).

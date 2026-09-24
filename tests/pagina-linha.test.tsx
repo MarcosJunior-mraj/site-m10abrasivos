@@ -82,6 +82,8 @@ describe("página da linha", () => {
       ]),
     );
     expect(document.body.textContent).not.toMatch(/R\$|preço/i);
+    // Contexto padrão do chat para gatilhos sem `data-item` (ex.: botão do cabeçalho).
+    expect(screen.getByRole("main").getAttribute("data-contexto-chat")).toBe("Linha Green Turbo");
   });
 
   it("rascunho sai com noindex; título e descrição da linha", async () => {

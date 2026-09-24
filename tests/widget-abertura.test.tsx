@@ -225,3 +225,75 @@ describe("Widget — abertura e mensagem pronta", () => {
     expect(eventos[0].type).toBe("m10:chat-aberto");
   });
 });
+
+describe("Widget — contexto padrão da página (data-contexto-chat)", () => {
+  it("gatilho sem data-item (ex.: botão do cabeçalho) usa o contexto da página", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <button type="button" data-abrir-chat="">
+          cabeçalho
+        </button>
+        <main data-contexto-chat="Linha Green Turbo" />
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("cabeçalho"));
+    await usuario.type(await screen.findByRole("textbox", { name: /mensagem/i }), "Oi{Enter}");
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Oi", {
+        url: expect.any(String),
+        item: "Linha Green Turbo",
+        abertura: null,
+      }),
+    );
+  });
+
+  it("botão flutuante como primeiro clique também usa o contexto da página", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <main data-contexto-chat="Linha Green Turbo" />
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await usuario.type(await screen.findByRole("textbox", { name: /mensagem/i }), "Oi{Enter}");
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Oi", {
+        url: expect.any(String),
+        item: "Linha Green Turbo",
+        abertura: null,
+      }),
+    );
+  });
+
+  it("data-item do gatilho vence o contexto da página", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <main data-contexto-chat="Linha Green Turbo">
+          <button type="button" data-abrir-chat="" data-item="Kit GT">
+            item
+          </button>
+        </main>
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByText("item"));
+    await usuario.type(await screen.findByRole("textbox", { name: /mensagem/i }), "Oi{Enter}");
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Oi", expect.objectContaining({ item: "Kit GT" })),
+    );
+  });
+
+  it("fora de uma página com contexto, continua sem item", async () => {
+    const usuario = userEvent.setup();
+    render(<Widget />);
+    await usuario.click(screen.getByTestId("botao-chat"));
+    await usuario.type(await screen.findByRole("textbox", { name: /mensagem/i }), "Oi{Enter}");
+    await waitFor(() =>
+      expect(enviar).toHaveBeenCalledWith("Oi", expect.objectContaining({ item: null })),
+    );
+  });
+});

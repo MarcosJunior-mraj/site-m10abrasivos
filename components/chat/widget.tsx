@@ -28,6 +28,16 @@ const ChatCompleto = lazy(() => import("@/components/chat/chat-completo"));
 const LINK_DE_RESERVA = linkDoWhatsapp(CONFIG_PUBLICA.whatsappFallback);
 
 /**
+ * Contexto padrão da página (ex.: `<main data-contexto-chat="Linha Green Turbo">`
+ * na página de uma linha): vale para gatilhos sem `data-item` — o botão do
+ * cabeçalho, o flutuante no primeiro clique — para a nota no CRM nunca sair
+ * só com a URL.
+ */
+function contextoDaPagina(): string | null {
+  return document.querySelector("[data-contexto-chat]")?.getAttribute("data-contexto-chat") ?? null;
+}
+
+/**
  * Se o código do chat não chegar (rede caiu no meio, deploy novo trocou os
  * arquivos), o visitante ainda vê o painel com o WhatsApp — nunca um clique
  * que não mostra nada.
@@ -88,7 +98,7 @@ export function Widget() {
       const embutido = gatilho.closest<HTMLElement>("[data-chat-embutido]");
       const destino = embutido?.querySelector<HTMLElement>("[data-chat-alvo]") ?? null;
       abrir({
-        item: gatilho.dataset.item ?? null,
+        item: gatilho.dataset.item ?? contextoDaPagina(),
         abertura: gatilho.dataset.abertura ?? null,
         mensagem: gatilho.dataset.mensagem ?? null,
         destino,
@@ -114,7 +124,12 @@ export function Widget() {
         onClick={() =>
           aberto && !destinoRef.current
             ? fechar()
-            : abrir({ item: itemRef.current, abertura: null, mensagem: null, destino: null })
+            : abrir({
+                item: itemRef.current ?? contextoDaPagina(),
+                abertura: null,
+                mensagem: null,
+                destino: null,
+              })
         }
         aria-expanded={aberto}
         className="fixed bottom-4 right-4 z-50 min-h-14 rounded-tecnico bg-laranja px-5 font-semibold text-azul shadow-lg"
