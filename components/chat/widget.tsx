@@ -63,19 +63,38 @@ export function Widget() {
   const [aberto, setAberto] = useState(false);
   const [pedido, setPedido] = useState<PedidoDeAbertura | null>(null);
   const [naoLidas, setNaoLidas] = useState(0);
+  /** O painel aberto é o embutido (dentro de uma seção da página), não a janela flutuante. */
+  const [noDestino, setNoDestino] = useState(false);
   const itemRef = useRef<string | null>(null);
   const destinoRef = useRef<HTMLElement | null>(null);
   const botaoRef = useRef<HTMLButtonElement>(null);
+  /** Quem recebe o foco depois que o painel fechar (e a página se redesenhar). */
+  const focoAoFecharRef = useRef<HTMLElement | null>(null);
 
-  /** Fecha o painel e devolve o foco ao botão flutuante — inclusive quando o fechamento veio do Esc. */
+  /**
+   * Fecha o painel e devolve o foco a quem faz sentido — inclusive quando o
+   * fechamento veio do Esc: na janela flutuante, ao botão flutuante; no chat
+   * embutido, ao "Escreva sua pergunta…" daquela seção
+   * (`[data-chat-foco-ao-fechar]`), que só volta a aparecer quando o painel
+   * sai do alvo — por isso o foco vai no efeito, depois do redesenho.
+   */
   const fechar = useCallback(() => {
+    const secao = destinoRef.current?.closest<HTMLElement>("[data-chat-embutido]");
+    focoAoFecharRef.current =
+      secao?.querySelector<HTMLElement>("[data-chat-foco-ao-fechar]") ?? botaoRef.current;
     setAberto(false);
-    botaoRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (aberto || !focoAoFecharRef.current) return;
+    focoAoFecharRef.current.focus();
+    focoAoFecharRef.current = null;
+  }, [aberto]);
 
   const abrir = useCallback((dados: Omit<PedidoDeAbertura, "id">) => {
     itemRef.current = dados.item;
     destinoRef.current = dados.destino;
+    setNoDestino(dados.destino !== null);
     setAberto(true);
     setNaoLidas(0);
     setPedido((anterior) => ({ id: (anterior?.id ?? 0) + 1, ...dados }));
@@ -131,7 +150,8 @@ export function Widget() {
                 destino: null,
               })
         }
-        aria-expanded={aberto}
+        // Só a janela flutuante: o chat embutido não é "expandido" por este botão.
+        aria-expanded={aberto && !noDestino}
         className="fixed bottom-4 right-4 z-50 min-h-14 rounded-tecnico bg-laranja px-5 font-semibold text-azul shadow-lg"
       >
         Falar com especialista

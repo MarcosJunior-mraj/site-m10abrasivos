@@ -36,6 +36,8 @@ export function PergunteAoEspecialista({ linha }: { linha: Linha }) {
             data-abrir-chat=""
             data-item={linha.ia.contexto}
             data-abertura={linha.ia.balao}
+            // O widget devolve o foco aqui ao fechar o chat embutido.
+            data-chat-foco-ao-fechar=""
             className="mt-6 flex min-h-12 w-full items-center rounded-tecnico border border-borda bg-azul px-4 text-left text-sm text-texto-secundario"
           >
             Escreva sua pergunta…

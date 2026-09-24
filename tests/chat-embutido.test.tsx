@@ -83,4 +83,56 @@ describe("chat embutido", () => {
       expect(botao.getAttribute("data-item")).toBe("Linha Green Turbo");
     }
   });
+
+  it("o botão flutuante só se diz expandido quando a janela flutuante está aberta", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <PergunteAoEspecialista linha={GREEN_TURBO} />
+        <Widget />
+      </>,
+    );
+    const flutuante = screen.getByTestId("botao-chat");
+    expect(flutuante.getAttribute("aria-expanded")).toBe("false");
+    await usuario.click(screen.getByRole("button", { name: "Serve para quartzito?" }));
+    await within(screen.getByTestId("chat-embutido")).findByRole("region");
+    expect(flutuante.getAttribute("aria-expanded")).toBe("false");
+    await usuario.click(flutuante);
+    await screen.findByRole("dialog");
+    expect(flutuante.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("fechar o chat embutido devolve o foco ao 'Escreva sua pergunta…' da seção", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <PergunteAoEspecialista linha={GREEN_TURBO} />
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByRole("button", { name: "Serve para quartzito?" }));
+    const secao = screen.getByTestId("chat-embutido");
+    const regiao = await within(secao).findByRole("region");
+    await usuario.click(within(regiao).getByRole("button", { name: /fechar conversa/i }));
+    await waitFor(() => expect(within(secao).queryByRole("region")).toBeNull());
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(secao).getByRole("button", { name: /escreva sua pergunta/i }),
+      ),
+    );
+  });
+
+  it("fechar a janela flutuante devolve o foco ao botão flutuante", async () => {
+    const usuario = userEvent.setup();
+    render(
+      <>
+        <PergunteAoEspecialista linha={GREEN_TURBO} />
+        <Widget />
+      </>,
+    );
+    await usuario.click(screen.getByTestId("botao-chat"));
+    const janela = await screen.findByRole("dialog");
+    await usuario.click(within(janela).getByRole("button", { name: /fechar conversa/i }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("botao-chat")));
+  });
 });
