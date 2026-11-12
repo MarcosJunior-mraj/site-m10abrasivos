@@ -157,7 +157,7 @@ export function Painel({
                 evento.currentTarget.form?.requestSubmit();
               }
             }}
-            className="min-h-11 flex-1 resize-none rounded-tecnico border border-borda bg-azul px-3 py-2 text-sm"
+            className="min-h-11 flex-1 resize-none rounded-tecnico border border-borda bg-fundo px-3 py-2 text-sm"
           />
           <button
             type="submit"

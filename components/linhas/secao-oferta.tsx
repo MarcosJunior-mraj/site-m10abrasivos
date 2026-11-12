@@ -18,7 +18,7 @@ export async function SecaoOferta({ linha }: { linha: Linha }) {
   return (
     <section aria-labelledby="oferta" className="bg-superficie py-20">
       <div className="mx-auto max-w-6xl px-4">
-        <div className="rounded-tecnico border border-laranja bg-azul p-8 md:p-12">
+        <div className="rounded-tecnico border border-laranja bg-fundo p-8 md:p-12">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-laranja">A oferta</p>
           <h2 id="oferta" className="mt-3 text-3xl md:text-4xl">
             {titulo}

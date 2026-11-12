@@ -31,7 +31,7 @@ export function Bolhas({
           className={`max-w-[85%] rounded-tecnico px-3 py-2 text-sm ${
             bolha.de === "cliente"
               ? "ml-auto bg-laranja text-azul"
-              : "border border-borda bg-azul text-texto"
+              : "border border-borda bg-fundo text-texto"
           } ${bolha.situacao === "falhou" ? "opacity-60" : ""}`}
         >
           {bolha.texto}

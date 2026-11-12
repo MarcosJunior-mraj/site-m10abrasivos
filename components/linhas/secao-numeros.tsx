@@ -18,7 +18,7 @@ export function SecaoNumeros({ linha }: { linha: Linha }) {
         </h2>
         <ul className="mt-10 grid gap-6 md:grid-cols-3">
           {linha.numeros.map((n) => (
-            <li key={n.rotulo} className="rounded-tecnico border border-borda bg-azul p-6">
+            <li key={n.rotulo} className="rounded-tecnico border border-borda bg-fundo p-6">
               <p className="font-titulo text-4xl text-laranja">{n.valor}</p>
               <p className="mt-2">{n.rotulo}</p>
               <p className="mt-3 font-mono text-xs text-texto-secundario">Fonte: {n.fonte}</p>

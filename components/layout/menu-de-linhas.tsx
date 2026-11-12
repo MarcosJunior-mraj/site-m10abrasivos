@@ -60,7 +60,7 @@ export function MenuDeLinhas({
         >
           Linhas <span aria-hidden>▾</span>
         </summary>
-        <ul className="absolute left-0 z-50 mt-2 min-w-56 rounded-tecnico border border-borda bg-azul p-2 shadow-xl">
+        <ul className="absolute left-0 z-50 mt-2 min-w-56 rounded-tecnico border border-borda bg-fundo p-2 shadow-xl">
           {linhas.map((linha) => (
             <li key={linha.slug}>
               <Link

@@ -5,7 +5,7 @@ import type { Linha } from "@/lib/linhas/esquema";
 /** Topo da home quando há linha publicada: a linha em destaque, com o vídeo do topo dela. */
 export function DestaqueDaLinha({ linha }: { linha: Linha }) {
   return (
-    <section className="relative isolate flex min-h-[70svh] items-end overflow-hidden border-b border-borda">
+    <section className="tema-escuro relative isolate flex min-h-[70svh] items-end overflow-hidden border-b border-borda">
       {linha.topo.video ? (
         <VideoCurto video={linha.topo.video} prioridade className="absolute inset-0 -z-10" />
       ) : (

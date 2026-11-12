@@ -6,7 +6,7 @@ import { VideoCurto } from "./video-curto";
 export function SecaoTopo({ linha }: { linha: Linha }) {
   const { topo } = linha;
   return (
-    <section className="relative isolate flex min-h-[88svh] items-end overflow-hidden border-b border-borda">
+    <section className="tema-escuro relative isolate flex min-h-[88svh] items-end overflow-hidden border-b border-borda">
       {topo.video ? (
         <VideoCurto video={topo.video} prioridade className="absolute inset-0 -z-10" />
       ) : linha.rascunho ? (

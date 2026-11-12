@@ -99,7 +99,7 @@ export function VideoCurto({
             type="button"
             onClick={togglePause}
             aria-label={tocando ? "Pausar vídeo" : "Retomar vídeo"}
-            className="absolute bottom-3 right-3 min-h-11 min-w-11 rounded-tecnico bg-azul/70 text-texto"
+            className="absolute bottom-3 right-3 min-h-11 min-w-11 rounded-tecnico bg-azul/70 text-white"
           >
             {tocando ? "⏸" : "▶"}
           </button>

@@ -17,10 +17,10 @@ export function Cabecalho({ categorias }: { categorias: LinkDeCategoria[] }) {
   const semLinha = categorias.filter((c) => !categoriasComLinha.has(c.slug));
 
   return (
-    <header className="sticky top-0 z-40 border-b border-borda bg-azul/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-borda bg-fundo/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-6 md:py-4">
         <Link href="/" aria-label="M10 Abrasivos — início" className="self-start">
-          <Logo largura={140} prioridade />
+          <Logo variante="positivo" largura={140} prioridade />
         </Link>
         <nav aria-label="Principal">
           <ul className="flex flex-wrap items-center gap-x-6 gap-y-2">

@@ -14,7 +14,7 @@ export function PergunteAoEspecialista({ linha }: { linha: Linha }) {
       <div data-chat-embutido="" data-testid="chat-embutido" className="mt-8">
         <div data-chat-alvo="" />
         <div data-chat-previa="" className="rounded-tecnico border border-borda bg-superficie p-6">
-          <p className="max-w-[85%] rounded-tecnico border border-borda bg-azul px-3 py-2 text-sm">
+          <p className="max-w-[85%] rounded-tecnico border border-borda bg-fundo px-3 py-2 text-sm">
             {linha.ia.balao}
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
@@ -38,7 +38,7 @@ export function PergunteAoEspecialista({ linha }: { linha: Linha }) {
             data-abertura={linha.ia.balao}
             // O widget devolve o foco aqui ao fechar o chat embutido.
             data-chat-foco-ao-fechar=""
-            className="mt-6 flex min-h-12 w-full items-center rounded-tecnico border border-borda bg-azul px-4 text-left text-sm text-texto-secundario"
+            className="mt-6 flex min-h-12 w-full items-center rounded-tecnico border border-borda bg-fundo px-4 text-left text-sm text-texto-secundario"
           >
             Escreva sua pergunta…
           </button>

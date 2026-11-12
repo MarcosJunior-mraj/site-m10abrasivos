@@ -86,7 +86,7 @@ export function BalaoProativo({
   return (
     <div role="status" aria-live="polite">
       {visivel ? (
-        <div className="fixed right-4 bottom-24 z-40 flex max-w-[16rem] items-start gap-2 rounded-tecnico rounded-br-none bg-texto p-3 text-azul shadow-2xl md:max-w-xs">
+        <div className="fixed right-4 bottom-24 z-40 flex max-w-[16rem] items-start gap-2 rounded-tecnico rounded-br-none bg-azul p-3 text-white shadow-2xl md:max-w-xs">
           <button
             type="button"
             data-abrir-chat=""
@@ -101,7 +101,7 @@ export function BalaoProativo({
             type="button"
             aria-label="Fechar sugestão"
             onClick={() => setVisivel(false)}
-            className="min-h-6 min-w-6 text-azul/60"
+            className="min-h-6 min-w-6 text-white/60"
           >
             ✕
           </button>

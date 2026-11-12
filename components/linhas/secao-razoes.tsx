@@ -13,7 +13,7 @@ export function SecaoRazoes({ linha }: { linha: Linha }) {
           {linha.razoes.itens.map((razao) => (
             <article
               key={razao.titulo}
-              className="overflow-hidden rounded-tecnico border border-borda bg-azul"
+              className="overflow-hidden rounded-tecnico border border-borda bg-fundo"
             >
               {razao.video ? (
                 <VideoCurto video={razao.video} className="aspect-video" />

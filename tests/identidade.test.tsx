@@ -10,11 +10,26 @@ describe("tokens da identidade", () => {
   it("usa exatamente as cores do Guia da Marca", () => {
     expect(css).toContain("--cor-azul: #20233A");
     expect(css).toContain("--cor-laranja: #F97709");
-    expect(css).toContain("--cor-superficie: #2A2E4A");
-    expect(css).toContain("--cor-borda: #3A3F60");
-    expect(css).toContain("--cor-texto: #F2F3F7");
-    expect(css).toContain("--cor-texto-secundario: #B9BCD0");
     expect(css).toContain("--cor-laranja-escuro: #C85A00");
+  });
+
+  it("tema claro por padrão: fundo branco e texto azul-marinho", () => {
+    const raiz = css.slice(css.indexOf(":root"), css.indexOf("}", css.indexOf(":root")));
+    expect(raiz).toContain("--cor-fundo: #FFFFFF");
+    expect(raiz).toContain("--cor-texto: #20233A");
+    expect(css).toContain("color-scheme: light");
+    expect(css).toContain("background-color: var(--cor-fundo)");
+  });
+
+  it("bloco escuro mantém as cores escuras do Guia da Marca", () => {
+    const escuro = css.slice(
+      css.indexOf(".tema-escuro"),
+      css.indexOf("}", css.indexOf(".tema-escuro")),
+    );
+    expect(escuro).toContain("--cor-superficie: #2A2E4A");
+    expect(escuro).toContain("--cor-borda: #3A3F60");
+    expect(escuro).toContain("--cor-texto: #F2F3F7");
+    expect(escuro).toContain("--cor-texto-secundario: #B9BCD0");
   });
 
   it("não carrega a fonte do logo (Panton só existe na imagem)", () => {
