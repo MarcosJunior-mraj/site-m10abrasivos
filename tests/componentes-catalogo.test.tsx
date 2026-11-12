@@ -70,6 +70,16 @@ describe("CartaoItem", () => {
     expect(container.querySelector("img")).toBeNull();
     expect(screen.getByTestId("marcador-sem-foto")).toBeDefined();
   });
+
+  it("kit Green Turbo mostra a capa do vídeo no lugar da foto/marcador", () => {
+    const { container } = render(
+      <CartaoItem item={item({ images: [], slug: "kit-gt-para-poliborda", kind: "kit" })} />,
+    );
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(
+      "/videos/kit-gt-para-poliborda.jpg",
+    );
+    expect(screen.queryByTestId("marcador-sem-foto")).toBeNull();
+  });
 });
 
 describe("EscalaDeRugosidade", () => {

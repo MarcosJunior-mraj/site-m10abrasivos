@@ -65,7 +65,6 @@ export default async function PaginaDeCategoria({
           <h1 className="text-3xl">{dados.categoria.name}</h1>
           {descricao ? <p className="mt-3 max-w-prose text-texto-secundario">{descricao}</p> : null}
         </header>
-        {/* `GradeDeItens` é de cliente: tudo que vai nas props sai no HTML (payload RSC). */}
         <GradeDeItens itens={dados.itens.map(itemParaONavegador)} />
       </main>
     </>

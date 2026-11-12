@@ -1,8 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import { VideoDoCartao } from "@/components/catalogo/video-do-cartao";
 import { descricaoDoItem } from "@/lib/catalog/apresentacao";
 import { temImagem, urlDaImagem } from "@/lib/catalog/imagens";
 import type { ItemCatalogo } from "@/lib/catalog/schemas";
+import { videoDoItem } from "@/lib/catalog/videos-dos-itens";
 
 /**
  * `nivelTitulo`: nível do título do cartão na hierarquia da página — 3 na
@@ -11,10 +13,13 @@ import type { ItemCatalogo } from "@/lib/catalog/schemas";
  */
 export function CartaoItem({ item, nivelTitulo = 3 }: { item: ItemCatalogo; nivelTitulo?: 3 | 4 }) {
   const Titulo = nivelTitulo === 4 ? "h4" : "h3";
+  const video = videoDoItem(item.slug);
   return (
     <article className="group relative overflow-hidden rounded-tecnico border border-borda bg-superficie transition-colors hover:border-laranja">
       <div className="relative aspect-4/3 overflow-hidden border-b border-borda">
-        {temImagem(item) ? (
+        {video ? (
+          <VideoDoCartao video={video} />
+        ) : temImagem(item) ? (
           // Fundo branco: as fotos do Bling são produto recortado no branco; a
           // foto aparece inteira (contain) em vez de cortada pelo card 4:3.
           <div className="absolute inset-0 bg-white">

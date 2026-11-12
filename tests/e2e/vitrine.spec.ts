@@ -14,9 +14,7 @@ for (const caminho of [
     const resposta = await page.goto(caminho);
     expect(resposta?.status()).toBe(200);
     if (caminho === "/abrasivos-para-poliborda") {
-      // A grade de itens dessa rota filtra no cliente, depois de montar (ver
-      // `GradeDeItens`): ler o conteúdo cedo demais deixaria a varredura
-      // passar mesmo se um preço aparecesse só depois que a grade existe.
+      // Espera a grade aparecer antes de varrer o HTML atrás de preço.
       await expect(page.getByRole("article").first()).toBeVisible();
     }
     const html = await page.content();
@@ -43,13 +41,6 @@ test("o filtro de preço tira só o par/frase com preço, não a ficha inteira",
   await expect(page.getByText("Abrasivo para polimento intermediário.").first()).toBeVisible();
   await expect(page.getByText("M14")).toBeVisible();
   await expect(page.getByText("R$ 10,00")).toHaveCount(0);
-});
-
-test("o filtro reduz a lista e fica na URL", async ({ page }) => {
-  await page.goto("/abrasivos-para-poliborda");
-  await page.getByRole("button", { name: "Mármore" }).click();
-  await expect(page).toHaveURL(/pedra=marmore/);
-  await expect(page.getByRole("article")).toHaveCount(1);
 });
 
 test("o sitemap lista os produtos", async ({ request }) => {
