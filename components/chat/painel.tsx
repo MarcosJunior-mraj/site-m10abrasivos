@@ -78,8 +78,8 @@ export function Painel({
       tabIndex={-1}
       className={
         variante === "embutido"
-          ? "flex h-[28rem] w-full flex-col rounded-tecnico border border-borda bg-superficie"
-          : "fixed bottom-24 right-4 z-50 flex h-[32rem] w-[min(24rem,calc(100vw-2rem))] flex-col rounded-tecnico border border-borda bg-superficie shadow-2xl"
+          ? "flex h-[28rem] w-full flex-col overflow-hidden rounded-tecnico border border-borda bg-superficie"
+          : "fixed bottom-24 right-4 z-50 flex h-[32rem] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-tecnico border border-borda bg-superficie shadow-2xl"
       }
     >
       <header className="flex items-center justify-between border-b border-borda px-4 py-3">

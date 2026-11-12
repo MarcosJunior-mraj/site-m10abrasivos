@@ -37,7 +37,10 @@ export function FolhaDeEspecificacao({ item }: { item: ItemCatalogo }) {
   if (dados.length === 0) return null;
 
   return (
-    <section aria-labelledby="ficha" className="rounded-tecnico border border-borda bg-superficie">
+    <section
+      aria-labelledby="ficha"
+      className="overflow-hidden rounded-tecnico border border-borda bg-superficie"
+    >
       <h2 id="ficha" className="border-b border-borda px-5 py-3 text-sm">
         Folha de especificação
       </h2>

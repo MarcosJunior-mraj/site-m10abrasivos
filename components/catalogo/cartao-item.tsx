@@ -12,7 +12,7 @@ import type { ItemCatalogo } from "@/lib/catalog/schemas";
 export function CartaoItem({ item, nivelTitulo = 3 }: { item: ItemCatalogo; nivelTitulo?: 3 | 4 }) {
   const Titulo = nivelTitulo === 4 ? "h4" : "h3";
   return (
-    <article className="group relative rounded-tecnico border border-borda bg-superficie transition-colors hover:border-laranja">
+    <article className="group relative overflow-hidden rounded-tecnico border border-borda bg-superficie transition-colors hover:border-laranja">
       <div className="relative aspect-4/3 overflow-hidden border-b border-borda">
         {temImagem(item) ? (
           // Fundo branco: as fotos do Bling são produto recortado no branco; a

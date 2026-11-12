@@ -37,7 +37,8 @@
   --font-titulo: var(--fonte-titulo);
   --font-texto: var(--fonte-texto);
   --font-mono: var(--fonte-mono);
-  --radius-tecnico: 2px;
+  /* Mesmo arredondamento do CRM (--radius 0.625rem = 10px). */
+  --radius-tecnico: 0.625rem;
 }
 
 html {

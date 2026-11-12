@@ -7,7 +7,7 @@ export function ComposicaoDoKit({ componentes }: { componentes: ItemCatalogo["co
   return (
     <section
       aria-labelledby="composicao"
-      className="rounded-tecnico border border-borda bg-superficie"
+      className="overflow-hidden rounded-tecnico border border-borda bg-superficie"
     >
       <h2 id="composicao" className="border-b border-borda px-5 py-3 text-sm">
         O que vem no kit
