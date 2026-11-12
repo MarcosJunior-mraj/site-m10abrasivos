@@ -1,7 +1,7 @@
 import { JetBrains_Mono, Montserrat, Poppins } from "next/font/google";
 
 export const fonteTitulo = Poppins({
-  weight: ["800"],
+  weight: ["600", "700", "800"],
   subsets: ["latin"],
   display: "swap",
   variable: "--fonte-titulo",

@@ -51,10 +51,14 @@ body {
   font-family: var(--fonte-texto), system-ui, sans-serif;
 }
 
-h1, h2, h3 {
-  font-family: var(--fonte-titulo), system-ui, sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+/* Na camada base para as classes do Tailwind (normal-case, font-bold...) poderem sobrescrever. */
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--fonte-titulo), system-ui, sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
 }
 
 :focus-visible {

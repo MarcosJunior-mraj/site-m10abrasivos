@@ -36,8 +36,8 @@ export function CartaoItem({ item, nivelTitulo = 3 }: { item: ItemCatalogo; nive
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 p-4">
-        <Titulo className="text-base leading-tight">
+      <div className="flex flex-col gap-2 p-5">
+        <Titulo className="text-base font-semibold normal-case leading-snug tracking-normal">
           <Link href={`/produto/${item.slug}`} className="after:absolute after:inset-0">
             {item.title}
           </Link>
