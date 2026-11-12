@@ -13,9 +13,9 @@ describe("tokens da identidade", () => {
     expect(css).toContain("--cor-laranja-escuro: #C85A00");
   });
 
-  it("tema claro por padrão: fundo branco e texto azul-marinho", () => {
+  it("tema claro por padrão: fundo azul clarinho e texto azul-marinho", () => {
     const raiz = css.slice(css.indexOf(":root"), css.indexOf("}", css.indexOf(":root")));
-    expect(raiz).toContain("--cor-fundo: #FFFFFF");
+    expect(raiz).toContain("--cor-fundo: #F3F6FC");
     expect(raiz).toContain("--cor-texto: #20233A");
     expect(css).toContain("color-scheme: light");
     expect(css).toContain("background-color: var(--cor-fundo)");

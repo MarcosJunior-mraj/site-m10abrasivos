@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
-/* Tema claro (padrão): fundo branco, texto azul-marinho, laranja nos destaques. */
+/* Tema claro (padrão): fundo azul bem clarinho, cartões brancos, texto azul-marinho, laranja nos destaques. */
 :root {
   --cor-azul: #20233A;
   --cor-laranja: #F97709;
   --cor-laranja-escuro: #C85A00;
-  --cor-fundo: #FFFFFF;
-  --cor-superficie: #FAFAFC;
+  --cor-fundo: #F3F6FC;
+  --cor-superficie: #FFFFFF;
   --cor-borda: #E7E9F0;
   --cor-texto: #20233A;
   --cor-texto-secundario: #555A75;
